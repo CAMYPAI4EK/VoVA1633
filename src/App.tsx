@@ -98,7 +98,7 @@ export default function App() {
         <div className="panel flex items-center gap-3 rounded-md px-4 py-2.5">
           <TrainIcon className="h-6 w-6 text-lamp-400" />
           <div className="leading-tight">
-            <div className="font-display text-[10px] tracking-wider text-lamp-400">ВАГОН 07</div>
+            <div className="font-display text-[10px] tracking-wider text-lamp-400">ВАГОН 09</div>
             <div className="font-display text-[7px] text-rail-200/60">ПЛАЦКАРТ-ЭКСПРЕСС</div>
           </div>
         </div>
@@ -207,7 +207,7 @@ export default function App() {
               </div>
               <div className="flex items-center gap-2 font-display text-[8px] text-lamp-400">
                 <span className="hud-pulse inline-block h-2 w-2 rounded-full bg-lamp-400 shadow-[0_0_8px_#ffc24b]" />
-                СКОРЫЙ №092Э
+                СКОРЫЙ №037
               </div>
             </div>
 
@@ -228,12 +228,12 @@ export default function App() {
 
             <div className="rise-in mt-5 space-y-1.5 text-sm text-rail-200/90">
               <div className="flex items-baseline gap-2">
-                <span className="whitespace-nowrap font-medium">МОСКВА → ВЛАДИВОСТОК</span>
+                <span className="whitespace-nowrap font-medium">НОВОСИБИРСК → МОСКВА</span>
                 <span className="flex-1 border-b border-dotted border-rail-200/25" />
-                <span className="font-display text-[8px] text-lamp-400">9288 КМ</span>
+                <span className="font-display text-[8px] text-lamp-400">3335 КМ</span>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="whitespace-nowrap font-medium">ВАГОН 07 · МЕСТО 36 (БОКОВОЕ)</span>
+                <span className="whitespace-nowrap font-medium">ВАГОН 09 · МЕСТО 24</span>
                 <span className="flex-1 border-b border-dotted border-rail-200/25" />
                 <span className="font-display text-[8px] text-lamp-400">У ОКНА</span>
               </div>
