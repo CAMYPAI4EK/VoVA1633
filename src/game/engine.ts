@@ -14,13 +14,39 @@ import {
 } from './sprites';
 import { SoundKit } from './audio';
 
-export type GameState = 'menu' | 'playing' | 'paused' | 'dying' | 'gameover';
+export type GameState = 'menu' | 'playing' | 'paused' | 'dying' | 'quiz' | 'gameover';
 
 export interface HudData {
   score: number;
   best: number;
   kmh: number;
   newBest: boolean;
+  level: number;
+  levelName: string;
+  progress: number;
+  revive: boolean;
+}
+
+// 4 уровня маршрута: 100 + 200 + 300 + 300 очков (порог — накопительный)
+export const LEVELS = [
+  { name: 'ОТПРАВЛЕНИЕ', to: 100 },
+  { name: 'РАЗГОН', to: 300 },
+  { name: 'ПЕРЕГОН', to: 600 },
+  { name: 'ФИНАЛЬНЫЙ РЫВОК', to: 900 },
+];
+
+export function levelForScore(s: number): number {
+  if (s < LEVELS[0].to) return 1;
+  if (s < LEVELS[1].to) return 2;
+  if (s < LEVELS[2].to) return 3;
+  return 4;
+}
+
+function levelProgress(s: number): number {
+  const lv = levelForScore(s);
+  const from = lv === 1 ? 0 : LEVELS[lv - 2].to;
+  const to = LEVELS[lv - 1].to;
+  return Math.min(1, Math.max(0, (s - from) / (to - from)));
 }
 
 export interface EngineHooks {
@@ -194,6 +220,9 @@ export class PlatskartGame {
 
   private shake = 0;
   private deathT = 0;
+  private invincibleT = 0;
+  private revivalUsed = false;
+  private level = 1;
 
   private onKeyDown: (e: KeyboardEvent) => void;
   private onKeyUp: (e: KeyboardEvent) => void;
@@ -264,6 +293,9 @@ export class PlatskartGame {
     this.newBest = false;
     this.milestoneNext = 500;
     this.stationIdx = 0;
+    this.invincibleT = 0;
+    this.revivalUsed = false;
+    this.level = 1;
     this.py = GROUND_Y;
     this.vy = 0;
     this.grounded = true;
@@ -299,6 +331,43 @@ export class PlatskartGame {
   toMenu() {
     this.reset();
     this.setState('menu');
+  }
+
+  // Верный ответ в квизе: пассажир встаёт на том же месте, путь впереди расчищен
+  revive() {
+    if (this.state !== 'quiz') return;
+    this.revivalUsed = true;
+    this.obstacles = [];
+    this.py = GROUND_Y;
+    this.vy = 0;
+    this.grounded = true;
+    this.ducking = false;
+    this.duckHeld = false;
+    this.jumpBuf = 0;
+    this.coyote = 0;
+    this.jumpCut = false;
+    this.invincibleT = 2.5;
+    this.distSince = 0;
+    this.nextGap = 760;
+    this.shake = 0;
+    this.sound.milestone();
+    this.hooks.onToast('ВОЗРОЖДЕНИЕ — ПУТЬ СВОБОДЕН');
+    this.popup('ВОЗРОЖДЕНИЕ!', this.playerX + 30, this.py - 130, '#8fd6b8');
+    this.pushHud(true);
+    this.setState('playing');
+  }
+
+  // Неверный ответ: маршрут начинается сначала
+  failQuiz() {
+    if (this.state !== 'quiz') return;
+    this.hooks.onToast('НЕВЕРНО — МАРШРУТ СНАЧАЛА');
+    this.start();
+  }
+
+  // Отказ от возрождения: обычная конечная
+  skipRevive() {
+    if (this.state !== 'quiz') return;
+    this.setState('gameover');
   }
 
   togglePause() {
@@ -374,11 +443,24 @@ export class PlatskartGame {
   // ------------------------------------------------- HUD
   private pushHud(force = false) {
     const s = Math.floor(this.score);
-    const kmh = Math.round((this.speed * 0.19) / 5) * 5;
-    const key = `${s}|${this.best}|${kmh}|${this.newBest}`;
+    // 420 px/s на табло = 40 км/ч (старт), максимум ≈ 110 км/ч
+    const kmh = Math.round((this.speed * 0.0952) / 5) * 5;
+    const lv = levelForScore(s);
+    const prog = Math.round(levelProgress(s) * 100) / 100;
+    const rev = !this.revivalUsed;
+    const key = `${s}|${this.best}|${kmh}|${this.newBest}|${lv}|${prog}|${rev}`;
     if (force || key !== this.lastHud) {
       this.lastHud = key;
-      this.hooks.onHud({ score: s, best: this.best, kmh, newBest: this.newBest });
+      this.hooks.onHud({
+        score: s,
+        best: this.best,
+        kmh,
+        newBest: this.newBest,
+        level: lv,
+        levelName: LEVELS[lv - 1].name,
+        progress: prog,
+        revive: rev,
+      });
     }
   }
 
@@ -545,6 +627,7 @@ export class PlatskartGame {
       return;
     }
     if (this.state === 'paused') return;
+    if (this.state === 'quiz') return;
 
     if (this.state === 'dying') {
       this.deathT += dt;
@@ -555,7 +638,10 @@ export class PlatskartGame {
       this.vy += GRAV * 0.7 * dt;
       this.py += this.vy * dt;
       if (this.py > GROUND_Y) this.py = GROUND_Y;
-      if (this.deathT >= 1.1) this.setState('gameover');
+      if (this.deathT >= 1.1) {
+        if (!this.revivalUsed) this.setState('quiz');
+        else this.setState('gameover');
+      }
       return;
     }
 
@@ -565,6 +651,17 @@ export class PlatskartGame {
     this.speed = Math.min(MAX_SPEED, this.speed + dt * (this.speed < 700 ? 13.5 : 9));
     this.worldX += this.speed * dt;
     this.score += this.speed * dt * 0.03;
+    if (this.invincibleT > 0) this.invincibleT -= dt;
+
+    // смена уровня маршрута
+    const lv = levelForScore(this.score);
+    if (lv > this.level) {
+      this.level = lv;
+      this.speed = Math.min(MAX_SPEED, this.speed + 55);
+      this.sound.milestone();
+      this.hooks.onToast(`УРОВЕНЬ ${lv}/4 — ${LEVELS[lv - 1].name}`);
+      this.popup(`УРОВЕНЬ ${lv}`, this.playerX + 30, this.py - 130, '#ffc24b');
+    }
 
     // шаги / стук колёс
     this.runT += dt * (this.speed / 52);
@@ -628,6 +725,7 @@ export class PlatskartGame {
         this.obstacles.splice(i, 1);
         continue;
       }
+      if (this.invincibleT > 0) continue; // мигает после возрождения
       const pad = 5;
       const ox0 = o.x + pad;
       const oy0 = o.y + pad;
@@ -1179,7 +1277,8 @@ export class PlatskartGame {
     ctx.fill();
 
     ctx.save();
-    if (this.state === 'dying' || this.state === 'gameover') {
+    if (this.invincibleT > 0 && Math.floor(this.t * 12) % 2 === 0) ctx.globalAlpha = 0.35;
+    if (this.state === 'dying' || this.state === 'gameover' || this.state === 'quiz') {
       const spin = Math.min(1.4, this.deathT * 2.2);
       ctx.translate(this.playerX + 6, feet - 34);
       ctx.rotate(spin);

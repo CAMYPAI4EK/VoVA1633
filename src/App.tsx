@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import { PlatskartGame } from './game/engine';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import { LEVELS, PlatskartGame } from './game/engine';
 import type { GameState, HudData } from './game/engine';
+import { pickQuestion } from './game/quiz';
+import type { QuizQuestion } from './game/quiz';
 
 /* ---------- мелкие детали ---------- */
 
@@ -50,13 +52,106 @@ function PauseIcon() {
 
 const fmt = (n: number) => String(Math.max(0, Math.floor(n))).padStart(5, '0');
 
+/* ---------- квиз возрождения ---------- */
+
+function QuizOverlay({
+  onCorrect,
+  onWrong,
+  onSkip,
+}: {
+  onCorrect: () => void;
+  onWrong: () => void;
+  onSkip: () => void;
+}) {
+  const [q] = useState<QuizQuestion>(() => pickQuestion());
+  const [picked, setPicked] = useState<number | null>(null);
+
+  const answer = (i: number) => {
+    if (picked !== null) return;
+    setPicked(i);
+    window.setTimeout(() => {
+      if (i === q.correct) onCorrect();
+      else onWrong();
+    }, 700);
+  };
+
+  return (
+    <div className="absolute inset-0 z-40 flex items-center justify-center bg-[rgba(5,11,9,0.66)] p-4">
+      <div className="board board-in w-[min(560px,94vw)] rounded-lg px-6 py-6 sm:px-9 sm:py-7">
+        <div className="flex items-center justify-between gap-3 border-b-2 border-dashed border-lamp-500/25 pb-3">
+          <div className="font-display text-[9px] tracking-[0.25em] text-lamp-500/90">
+            ВОПРОС ПРОВОДНИКА
+          </div>
+          <div className="flex items-center gap-2 font-display text-[8px] text-[#8fd6b8]">
+            <span className="hud-pulse inline-block h-2 w-2 rounded-full bg-[#8fd6b8] shadow-[0_0_8px_#8fd6b8]" />
+            ВОЗРОЖДЕНИЕ
+          </div>
+        </div>
+
+        <p className="mt-4 text-sm leading-relaxed text-rail-200/85">
+          Пассажир упал, но поезд ещё можно догнать. Ответьте верно — и вернётесь в вагон{' '}
+          <span className="font-medium text-lamp-300">на то же место</span>. Ошибётесь — маршрут
+          начнётся сначала.
+        </p>
+
+        <div className="mt-4 rounded border border-lamp-500/25 bg-wagon-900/60 px-4 py-3.5 text-base font-medium leading-snug text-rail-100">
+          {q.question}
+        </div>
+
+        <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+          {q.options.map((opt, i) => {
+            let cls = 'opt-btn';
+            if (picked !== null) {
+              if (i === q.correct) cls += ' opt-correct';
+              else if (i === picked) cls += ' opt-wrong';
+              else cls += ' opt-dim';
+            }
+            return (
+              <button key={opt} className={cls} onClick={() => answer(i)} disabled={picked !== null}>
+                {opt}
+              </button>
+            );
+          })}
+        </div>
+
+        {picked !== null && (
+          <div
+            className={`mt-4 text-center font-display text-[10px] tracking-widest ${
+              picked === q.correct ? 'text-[#8fd6b8]' : 'text-[#ff8a70]'
+            }`}
+          >
+            {picked === q.correct ? 'ВЕРНО! ВОЗВРАЩАЕМСЯ В ВАГОН…' : 'НЕВЕРНО. ПОЕЗД УШЁЛ БЕЗ ВАС…'}
+          </div>
+        )}
+
+        <button
+          className="mt-5 w-full text-center text-xs text-rail-200/50 underline decoration-dotted underline-offset-4 transition-colors hover:text-rail-200/80"
+          onClick={onSkip}
+          disabled={picked !== null}
+        >
+          Не рисковать и сойти на конечной
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- приложение ---------- */
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engRef = useRef<PlatskartGame | null>(null);
   const [gs, setGs] = useState<GameState>('menu');
-  const [hud, setHud] = useState<HudData>({ score: 0, best: 0, kmh: 80, newBest: false });
+  const [hud, setHud] = useState<HudData>({
+    score: 0,
+    best: 0,
+    kmh: 40,
+    newBest: false,
+    level: 1,
+    levelName: LEVELS[0].name,
+    progress: 0,
+    revive: true,
+  });
   const [muted, setMuted] = useState(false);
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
 
@@ -101,6 +196,22 @@ export default function App() {
             <div className="font-display text-[10px] tracking-wider text-lamp-400">ВАГОН 09</div>
             <div className="font-display text-[7px] text-rail-200/60">ПЛАЦКАРТ-ЭКСПРЕСС</div>
           </div>
+          {inRun && (
+            <div className="ml-2 hidden min-w-[130px] border-l border-rail-200/15 pl-3 leading-tight sm:block">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-display text-[9px] text-lamp-400">УР. {hud.level}/4</span>
+                <span className="font-display text-[6px] tracking-wider text-rail-200/55">
+                  {hud.levelName}
+                </span>
+              </div>
+              <div className="mt-1.5 h-2 overflow-hidden rounded-sm border border-rail-200/20 bg-wagon-950/80">
+                <div
+                  className="h-full bg-lamp-500 shadow-[0_0_8px_#ffc24b] transition-[width] duration-300"
+                  style={{ width: `${Math.round(hud.progress * 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-start gap-2">
@@ -138,6 +249,14 @@ export default function App() {
               >
                 <PauseIcon />
               </button>
+            )}
+            {inRun && hud.revive && (
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-md border border-[#8fd6b8]/40 bg-[#0f2b22]/85 text-center font-display text-[7px] leading-none text-[#8fd6b8]"
+                title="Доступно одно возрождение — ответьте на вопрос проводника"
+              >
+                1×
+              </div>
             )}
           </div>
         </div>
@@ -262,6 +381,33 @@ export default function App() {
               </div>
             </div>
 
+            <div className="rise-in-2 mt-5 rounded border border-lamp-500/25 bg-wagon-900/50 px-4 py-3">
+              <div className="flex items-baseline justify-between">
+                <span className="font-display text-[8px] tracking-widest text-rail-200/60">
+                  УРОВНИ МАРШРУТА
+                </span>
+                <span className="font-display text-[7px] text-lamp-500/80">900 ОЧКОВ = КОНЕЦ ПУТИ</span>
+              </div>
+              <div className="mt-3 flex items-start">
+                {LEVELS.map((L, i) => (
+                  <Fragment key={L.name}>
+                    {i > 0 && (
+                      <div className="mt-3 h-0 flex-1 border-t-2 border-dotted border-lamp-500/40" />
+                    )}
+                    <div className="flex flex-col items-center px-0.5">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-lamp-400 bg-wagon-950 font-display text-[10px] text-lamp-400">
+                        {i + 1}
+                      </div>
+                      <div className="mt-1 w-16 text-center text-[9px] leading-tight text-rail-200/75">
+                        {L.name}
+                      </div>
+                      <div className="font-display text-[7px] text-lamp-500/80">{L.to}</div>
+                    </div>
+                  </Fragment>
+                ))}
+              </div>
+            </div>
+
             <div className="rise-in-2 mt-5 grid gap-2 text-xs text-rail-200/85 sm:grid-cols-2">
               <div className="flex items-center gap-2">
                 <Key>SPACE</Key>
@@ -280,6 +426,10 @@ export default function App() {
                 <Key>M</Key>
                 <span>— звук, чай в подстаканнике = +50</span>
               </div>
+            </div>
+            <div className="mt-2.5 rounded border border-[#8fd6b8]/30 bg-[#0f2b22]/50 px-4 py-2 text-xs text-[#a9e3cb]">
+              Упали? Один раз за поездку проводник даст вопрос — ответите верно и вернётесь на то
+              же место. Ошибка — и маршрут с нуля.
             </div>
 
             <div className="rise-in-3 mt-6 flex flex-wrap items-center justify-between gap-4">
@@ -316,6 +466,14 @@ export default function App() {
             </button>
           </div>
         </div>
+      )}
+
+      {gs === 'quiz' && (
+        <QuizOverlay
+          onCorrect={() => eng()?.revive()}
+          onWrong={() => eng()?.failQuiz()}
+          onSkip={() => eng()?.skipRevive()}
+        />
       )}
 
       {gs === 'gameover' && (
