@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Component, Fragment, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { LEVELS, PlatskartGame } from './game/engine';
 import type { GameState, HudData } from './game/engine';
 import { pickQuestion } from './game/quiz';
@@ -411,7 +412,7 @@ function AlbumOverlay({
 
 /* ---------- приложение ---------- */
 
-export default function App() {
+function PlatskartApp() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engRef = useRef<PlatskartGame | null>(null);
   const [gs, setGs] = useState<GameState>('menu');
@@ -924,5 +925,54 @@ export default function App() {
         </div>
       )}
     </div>
+  );
+}
+
+/* ---------- страховка от «зелёного экрана» ---------- */
+
+class StartupErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex h-full w-full items-center justify-center bg-wagon-950 p-6">
+          <div className="board w-[min(520px,94vw)] rounded-lg px-6 py-6 text-center">
+            <div className="font-display text-xs tracking-widest text-[#ff8a70]">
+              СБОЙ НА ЛИНИИ
+            </div>
+            <p className="mt-3 break-words text-sm leading-relaxed text-rail-200/85">
+              Поезд не смог отправиться: {this.state.error.message}
+            </p>
+            <p className="mt-2 text-xs text-rail-200/60">
+              Попробуйте обновить страницу (Ctrl/Cmd + Shift + R) — возможно, предпросмотр
+              показывает устаревшую сборку.
+            </p>
+            <button
+              className="btn-train mx-auto mt-5 rounded-md px-6 py-3 text-[10px] tracking-widest"
+              onClick={() => window.location.reload()}
+            >
+              ПЕРЕЗАПУСТИТЬ СОСТАВ
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function App() {
+  return (
+    <StartupErrorBoundary>
+      <PlatskartApp />
+    </StartupErrorBoundary>
   );
 }
