@@ -6,10 +6,12 @@ import App from "./App.tsx";
 declare global {
   interface Window {
     __platskartBooted?: boolean;
-    __platskartError?: string | null;
   }
 }
 
-ReactDOM.createRoot(document.getElementById("root")!).render(<App />);
-// игра смонтирована — сторожевой таймер можно не слушать
-window.__platskartBooted = true;
+// Защита от двойного монтирования: скрипт может исполниться дважды,
+// если сработает запасной загрузчик из index.html (fetch → blob).
+if (!window.__platskartBooted) {
+  window.__platskartBooted = true;
+  ReactDOM.createRoot(document.getElementById("root")!).render(<App />);
+}

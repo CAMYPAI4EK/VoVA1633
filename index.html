@@ -23,90 +23,260 @@
       }
     </style>
     <script>
-      // «Сторожевой таймер» запуска + автопочинка путей.
-      // Если предпросмотр открыт по вложенному адресу, абсолютные /assets/…
-      // не находятся — тогда те же файлы подгружаются относительным путём.
+      // ============================================================
+      //  САМОВОССТАНАВЛИВАЮЩИЙСЯ ЗАГРУЗЧИК
+      //  1) ждёт штатный запуск игры (флаг __platskartBooted);
+      //  2) если не запустилась — скачивает скрипт и стили обычным
+      //     fetch (ему не важен MIME-тип ответа и «странности» пути),
+      //     затем исполняет их из blob с правильным типом;
+      //  3) если ничего не помогло — показывает диагностику.
+      // ============================================================
       (function () {
-        window.__platskartError = null;
         window.__platskartBooted = false;
+        window.__pkDiag = [];
 
-        function toRelative(url) {
-          try {
-            var p = new URL(url, location.href).pathname;
-            return p.charAt(0) === '/' ? '.' + p : p;
-          } catch (err) {
-            return null;
-          }
+        function diag(msg) {
+          window.__pkDiag.push(msg);
         }
 
-        // capture-фаза ловит ошибки загрузки ресурсов (script/link),
-        // которые не всплывают до window обычным образом
-        window.addEventListener(
-          'error',
-          function (e) {
-            var t = e.target;
-            if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK') && !t.__pkRetried) {
-              var url = t.tagName === 'SCRIPT' ? t.src : t.href;
-              if (url && url.indexOf('/assets/') !== -1) {
-                var rel = toRelative(url);
-                if (rel) {
-                  t.__pkRetried = true;
-                  if (t.tagName === 'SCRIPT') {
-                    var s = document.createElement('script');
-                    s.type = t.type || 'text/javascript';
-                    s.src = rel;
-                    s.__pkRetried = true;
-                    document.head.appendChild(s);
-                    return;
-                  }
-                  var l = document.createElement('link');
-                  l.rel = 'stylesheet';
-                  l.href = rel;
-                  l.__pkRetried = true;
-                  document.head.appendChild(l);
-                  return;
-                }
-              }
-            }
-            if (window.__platskartBooted) return;
-            var msg = (e && e.message) || 'Неизвестная ошибка';
-            if (!window.__platskartError) window.__platskartError = 'Скрипт игры не загрузился: ' + msg;
-          },
-          true
-        );
-
+        window.addEventListener('error', function (e) {
+          diag('onerror: ' + (e && e.message ? e.message : '(без текста)'));
+        });
         window.addEventListener('unhandledrejection', function (e) {
-          if (window.__platskartBooted) return;
-          window.__platskartError =
-            'Ошибка при запуске игры: ' +
-            ((e && e.reason && e.reason.message) || e.reason || 'неизвестно');
+          diag('rejection: ' + String(e && e.reason));
         });
 
-        window.setTimeout(function () {
-          if (window.__platskartBooted) return;
+        function showFailure(title, detail) {
           var root = document.getElementById('root');
-          if (root && root.childElementCount > 0) return;
-          if (root) {
-            root.style.cssText =
-              'display:flex;align-items:center;justify-content:center;padding:24px;';
-            root.innerHTML =
-              '<div style="max-width:540px;border:2px solid #d0402e;border-radius:10px;background:#120c0a;padding:28px;text-align:center;color:#f2e6c8;font-family:monospace;">' +
-              '<div style="font-size:13px;letter-spacing:2px;color:#ff8a70;">СБОЙ НА ЛИНИИ</div>' +
-              '<p style="font-size:13px;line-height:1.6;margin:12px 0;">' +
-              (window.__platskartError || 'Игра не запустилась за отведённое время.') +
-              '</p>' +
-              '<p style="font-size:11px;color:#c9b990;margin:0 0 16px;word-break:break-all;">' +
-              location.href +
-              '</p>' +
-              '<button onclick="location.reload()" style="font-family:monospace;font-size:12px;letter-spacing:1px;padding:10px 22px;border-radius:8px;border:2px solid #ffc24b;background:#2a2118;color:#ffe3a6;cursor:pointer;">ПЕРЕЗАПУСТИТЬ СОСТАВ</button>' +
-              '</div>';
+          if (!root) return;
+          root.innerHTML = '';
+          var box = document.createElement('div');
+          box.style.cssText =
+            'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;' +
+            'background:#0b1512;padding:24px;font-family:Rubik,Arial,sans-serif;color:#e8e0cc;';
+          var panel = document.createElement('div');
+          panel.style.cssText =
+            'max-width:560px;width:100%;border:2px solid rgba(255,194,75,0.5);border-radius:10px;' +
+            'background:#101f1a;padding:28px;text-align:center;';
+          var h = document.createElement('div');
+          h.textContent = title;
+          h.style.cssText =
+            'font-family:"Press Start 2P",monospace;font-size:14px;letter-spacing:0.2em;color:#ff8a70;';
+          var p = document.createElement('p');
+          p.textContent = detail;
+          p.style.cssText = 'margin:16px 0 0;font-size:14px;line-height:1.5;';
+          var d = document.createElement('pre');
+          d.textContent = window.__pkDiag.join('\n') || '(диагностика пуста)';
+          d.style.cssText =
+            'margin:16px 0 0;padding:12px;max-height:180px;overflow:auto;text-align:left;' +
+            'font-size:11px;line-height:1.5;color:#8fd6b8;background:#0a1712;border-radius:6px;' +
+            'white-space:pre-wrap;word-break:break-word;';
+          var b = document.createElement('button');
+          b.textContent = 'ПЕРЕЗАПУСТИТЬ СОСТАВ';
+          b.style.cssText =
+            'margin-top:20px;padding:12px 22px;border:none;border-radius:6px;cursor:pointer;' +
+            'font-family:"Press Start 2P",monospace;font-size:10px;letter-spacing:0.15em;' +
+            'color:#1d0e02;background:#ffc24b;';
+          b.onclick = function () {
+            location.reload();
+          };
+          panel.appendChild(h);
+          panel.appendChild(p);
+          panel.appendChild(d);
+          panel.appendChild(b);
+          box.appendChild(panel);
+          root.appendChild(box);
+        }
+
+        // кандидаты: абсолютный, ./относительный и «голый» относительный
+        function candidatesFor(url) {
+          var clean = String(url).replace(/^[.]\//, '');
+          var bare = clean.charAt(0) === '/' ? clean.slice(1) : clean;
+          return [url, './' + bare, bare];
+        }
+
+        function fetchText(url) {
+          return fetch(url, { cache: 'no-store' })
+            .then(function (res) {
+              diag('fetch ' + url + ' -> ' + res.status);
+              return res.ok ? res.text() : null;
+            })
+            .catch(function (err) {
+              diag('fetch ' + url + ' -> ' + err);
+              return null;
+            });
+        }
+
+        function fetchFirst(cands) {
+          return cands.reduce(function (acc, url) {
+            return acc.then(function (found) {
+              return found !== null ? found : fetchText(url);
+            });
+          }, Promise.resolve(null));
+        }
+
+        function runModuleFromBlob(text) {
+          var blob = new Blob([text], { type: 'text/javascript' });
+          var u = URL.createObjectURL(blob);
+          var s = document.createElement('script');
+          s.type = 'module';
+          s.src = u;
+          document.head.appendChild(s);
+        }
+
+        function cssFromBlob(text) {
+          var blob = new Blob([text], { type: 'text/css' });
+          var u = URL.createObjectURL(blob);
+          var l = document.createElement('link');
+          l.rel = 'stylesheet';
+          l.href = u;
+          document.head.appendChild(l);
+        }
+
+        function wait(ms) {
+          return new Promise(function (r) {
+            setTimeout(r, ms);
+          });
+        }
+
+        setTimeout(async function () {
+          if (window.__platskartBooted) return;
+          diag('штатный запуск не произошёл за 4 с — запасная загрузка');
+
+          // стили (локальные, не трогая Google Fonts)
+          var links = Array.prototype.slice.call(
+            document.querySelectorAll('link[rel="stylesheet"]')
+          );
+          for (var i = 0; i < links.length; i++) {
+            var href = links[i].getAttribute('href');
+            if (!href || /^(https?:|blob:|data:)/.test(href)) continue;
+            var cssText = await fetchFirst(candidatesFor(href));
+            if (cssText !== null) cssFromBlob(cssText);
           }
-        }, 6000);
+
+          // модульные скрипты
+          var mods = Array.prototype.slice.call(
+            document.querySelectorAll('script[type="module"][src]')
+          );
+          if (mods.length === 0) {
+            showFailure('СБОЙ НА ЛИНИИ', 'В странице не найден скрипт игры.');
+            return;
+          }
+          for (var a = 0; a < mods.length; a++) {
+            var src = mods[a].getAttribute('src');
+            var jsText = await fetchFirst(candidatesFor(src));
+            if (jsText === null) {
+              showFailure(
+                'СБОЙ НА ЛИНИИ',
+                'Не удалось скачать скрипт игры ни по одному адресу. Ниже — диагностика:'
+              );
+              return;
+            }
+            if (window.__platskartBooted) return; // штатный скрипт всё-таки догнал
+            runModuleFromBlob(jsText);
+          }
+
+          // даём игре запуститься из blob
+          var waited = 0;
+          while (waited < 5000 && !window.__platskartBooted) {
+            await wait(250);
+            waited += 250;
+          }
+          if (!window.__platskartBooted) {
+            showFailure(
+              'СБОЙ НА ЛИНИИ',
+              'Скрипт загружен, но игра не запустилась. Ниже — диагностика:'
+            );
+          }
+        }, 4000);
+
+        // Последний рубеж: если через 12 с на экране всё ещё пусто
+        // (даже панель «СБОЙ НА ЛИНИИ» не появилась) — рисуем её вручную
+        // и даём кнопку, чтобы отправить диагностику.
+        setTimeout(function () {
+          var root = document.getElementById('root');
+          if (window.__platskartBooted || !root) return;
+          var hasSomething = false;
+          var ch = root.children;
+          for (var i = 0; i < ch.length; i++) {
+            var r = ch[i].getBoundingClientRect();
+            if (r.width > 120 && r.height > 120) {
+              hasSomething = true;
+              break;
+            }
+          }
+          if (hasSomething) return;
+          var box = document.createElement('div');
+          box.style.cssText =
+            'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;' +
+            'background:#0b1512;padding:24px;font-family:Rubik,Arial,sans-serif;color:#e8e0cc;z-index:99999;';
+          var panel = document.createElement('div');
+          panel.style.cssText =
+            'max-width:520px;width:100%;border:2px solid rgba(255,194,75,0.5);border-radius:10px;' +
+            'background:#101f1a;padding:28px;text-align:center;';
+          panel.innerHTML =
+            '<div style="font-family:\'Press Start 2P\',monospace;font-size:13px;letter-spacing:0.2em;color:#ff8a70;">СБОЙ НА ЛИНИИ</div>' +
+            '<p style="margin:16px 0 0;font-size:14px;line-height:1.5;">Экран пуст, и диагностика не сработала автоматически. ' +
+            'Нажмите кнопку ниже — откроется письмо с данными об ошибке, перешлите его содержимое.</p>' +
+            '<pre id="pkDiagBox" style="margin:16px 0 0;padding:12px;max-height:160px;overflow:auto;text-align:left;' +
+            'font-size:11px;line-height:1.5;color:#8fd6b8;background:#0a1712;border-radius:6px;white-space:pre-wrap;word-break:break-word;"></pre>';
+          var b = document.createElement('button');
+          b.textContent = 'ОТПРАВИТЬ ДИАГНОСТИКУ';
+          b.style.cssText =
+            'margin-top:20px;padding:12px 22px;border:none;border-radius:6px;cursor:pointer;' +
+            'font-family:\'Press Start 2P\',monospace;font-size:10px;letter-spacing:0.12em;' +
+            'color:#1d0e02;background:#ffc24b;';
+          b.onclick = function () {
+            var lines = (window.__pkDiag || []).slice();
+            lines.push('root.children=' + root.children.length);
+            var cs = root.children;
+            for (var k = 0; k < cs.length; k++) {
+              var rr = cs[k].getBoundingClientRect();
+              lines.push(
+                '  child[' + k + '] ' + cs[k].tagName + ' ' + Math.round(rr.width) + 'x' + Math.round(rr.height)
+              );
+            }
+            lines.push('ua=' + navigator.userAgent);
+            location.href = 'mailto:?subject=platskart-diag&body=' + encodeURIComponent(lines.join('\n'));
+          };
+          box.appendChild(panel);
+          panel.appendChild(b);
+          root.appendChild(box);
+          var pre = document.getElementById('pkDiagBox');
+          if (pre) pre.textContent = (window.__pkDiag || []).join('\n') || '(диагностика пуста)';
+        }, 12000);
       })();
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div
+        style="
+          position: fixed;
+          inset: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 14px;
+          background: #0b1512;
+          color: #ffc24b;
+          font-family: 'Press Start 2P', monospace;
+        "
+      >
+        <div style="font-size: 12px; letter-spacing: 0.2em; animation: pkblink 1.1s steps(2) infinite">
+          СОСТАВ ФОРМИРУЕТСЯ…
+        </div>
+        <div style="font-size: 8px; letter-spacing: 0.15em; color: #5d8a7b">ПУТЬ 037 · НОВОСИБИРСК → МОСКВА</div>
+        <style>
+          @keyframes pkblink {
+            50% {
+              opacity: 0.25;
+            }
+          }
+        </style>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
