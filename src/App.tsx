@@ -164,25 +164,120 @@ function QuizOverlay({
   );
 }
 
+/* ---------- свои фотографии (подменяют пиксель-арт) ----------
+   Положите файлы в папку public/photos/ с именами 01.jpg … 16.jpg
+   (также поддерживаются .jpeg, .png, .webp) и пересоберите проект.
+   Номер файла = номер кадра в альбоме. Если файла нет — остаётся пиксель-арт. */
+
+const PHOTO_EXTS = ['jpg', 'jpeg', 'png', 'webp'] as const;
+const customPhotoCache = new Map<number, HTMLImageElement | null>();
+const customPhotoPending = new Map<number, Promise<HTMLImageElement | null>>();
+
+function tryLoadImage(url: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+/** Ищет пользовательское фото для кадра id: photos/NN.jpg → .jpeg → .png → .webp. */
+function loadCustomPhoto(id: number): Promise<HTMLImageElement | null> {
+  if (customPhotoCache.has(id)) return Promise.resolve(customPhotoCache.get(id) ?? null);
+  const cached = customPhotoPending.get(id);
+  if (cached) return cached;
+  const pad = String(id).padStart(2, '0');
+  const promise = (async () => {
+    const base = import.meta.env.BASE_URL ?? '/';
+    for (const ext of PHOTO_EXTS) {
+      const img = await tryLoadImage(`${base}photos/${pad}.${ext}`);
+      if (img) {
+        customPhotoCache.set(id, img);
+        return img;
+      }
+    }
+    customPhotoCache.set(id, null);
+    return null;
+  })();
+  customPhotoPending.set(id, promise);
+  return promise;
+}
+
+function useCustomPhoto(id: number): HTMLImageElement | null {
+  const [img, setImg] = useState<HTMLImageElement | null>(null);
+  useEffect(() => {
+    let alive = true;
+    loadCustomPhoto(id).then((loaded) => {
+      if (alive) setImg(loaded);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+  return img;
+}
+
+/** Вписывает картинку в прямоугольник (object-fit: cover). */
+function drawCover(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+) {
+  const ir = img.width / img.height;
+  const cr = w / h;
+  let sx = 0;
+  let sy = 0;
+  let sw = img.width;
+  let sh = img.height;
+  if (ir > cr) {
+    sw = img.height * cr;
+    sx = (img.width - sw) / 2;
+  } else {
+    sh = img.width / cr;
+    sy = (img.height - sh) / 2;
+  }
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+}
+
 /* ---------- фотоальбом ---------- */
 
-function PhotoCanvas({ art }: { art: PhotoArt }) {
+function PhotoCanvas({ art, id }: { art: PhotoArt; id: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const custom = useCustomPhoto(id);
   useEffect(() => {
     const c = ref.current;
     if (!c) return;
     const ctx = c.getContext('2d');
     if (!ctx) return;
-    ctx.imageSmoothingEnabled = false;
-    drawSprite(ctx, art, 0, 0, 7);
-  }, [art]);
+    if (custom) {
+      // своя фотография — рисуем в высоком разрешении, сглаженно
+      const W = 378;
+      const HH = 252;
+      if (c.width !== W) c.width = W;
+      if (c.height !== HH) c.height = HH;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      drawCover(ctx, custom, 0, 0, W, HH);
+    } else {
+      // пиксель-арт
+      const W = art.w * 7;
+      const HH = art.rows.length * 7;
+      if (c.width !== W) c.width = W;
+      if (c.height !== HH) c.height = HH;
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, W, HH);
+      drawSprite(ctx, art, 0, 0, 7);
+    }
+  }, [art, custom]);
   return (
     <canvas
       ref={ref}
-      width={art.w * 7}
-      height={art.rows.length * 7}
       className="block w-full rounded-[2px]"
-      style={{ imageRendering: 'pixelated' }}
+      style={{ imageRendering: custom ? 'auto' : 'pixelated' }}
     />
   );
 }
@@ -260,7 +355,7 @@ function AlbumOverlay({
                   i % 2 ? 'rotate-1' : '-rotate-1'
                 }`}
               >
-                <PhotoCanvas art={p} />
+                <PhotoCanvas art={p} id={p.id} />
                 <div className="mt-2 text-center font-display text-[8px] leading-snug text-[#3a2f22]">
                   {String(p.id).padStart(2, '0')} · {p.title.toUpperCase()}
                 </div>
