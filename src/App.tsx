@@ -874,9 +874,8 @@ export default function App() {
               ГОРЬКО!
             </h2>
             <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-rail-200/85">
-              <span className="font-medium text-lamp-300">Володя</span> добежал до конца маршрута —
-              и до сердца проводницы <span className="font-medium text-[#ffb3c6]">Тани</span>. Узы
-              брака скреплены обручальными кольцами, голуби разлетелись по вагону.
+              <span className="font-medium text-lamp-300">Володя</span> добрался до конца своего
+              судьбоносного плацкарта, и добился руки и сердца своей прекрасной
             </p>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="rounded border border-[#e86a8a]/40 bg-wagon-900/70 px-4 py-3">
