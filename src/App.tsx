@@ -645,7 +645,7 @@ export default function App() {
               <div>
                 <h1 className="amber-glow font-display leading-none">
                   <span className="block text-base tracking-[0.18em] text-lamp-300/90 sm:text-lg">
-                    СУДЬБАНОСНЫЙ
+                    СУДЬБОНОСНЫЙ
                   </span>
                   <span className="mt-1.5 block text-4xl sm:text-5xl">ПЛАЦКАРТ</span>
                 </h1>
