@@ -875,7 +875,15 @@ export default function App() {
             </h2>
             <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-rail-200/85">
               <span className="font-medium text-lamp-300">Володя</span> добрался до конца своего
-              судьбоносного плацкарта, и добился руки и сердца своей прекрасной
+              судьбоносного плацкарта, и добился руки и сердца своей прекрасной{' '}
+              <span className="font-medium text-[#ffb3c6]">Тани</span>. Счастья молодым и большой
+              любви, этот поезд ещё отправится дальше, а пока наблюдайте за этой прекрасной парой!{' '}
+              <span
+                className="font-medium text-[#ff4d3d]"
+                style={{ textShadow: '0 0 10px rgba(255,77,61,0.8)' }}
+              >
+                &lt;3
+              </span>
             </p>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="rounded border border-[#e86a8a]/40 bg-wagon-900/70 px-4 py-3">
