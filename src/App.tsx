@@ -643,8 +643,11 @@ export default function App() {
 
             <div className="mt-5 flex flex-wrap items-end justify-between gap-4">
               <div>
-                <h1 className="amber-glow font-display text-4xl leading-none sm:text-5xl">
-                  ПЛАЦКАРТ
+                <h1 className="amber-glow font-display leading-none">
+                  <span className="block text-base tracking-[0.18em] text-lamp-300/90 sm:text-lg">
+                    СУДЬБАНОСНЫЙ
+                  </span>
+                  <span className="mt-1.5 block text-4xl sm:text-5xl">ПЛАЦКАРТ</span>
                 </h1>
                 <div className="red-glow mt-3 font-display text-[11px] tracking-[0.25em] sm:text-xs">
                   БЕГИ, ВОЛОДЯ!
@@ -744,8 +747,8 @@ export default function App() {
               </div>
             </div>
             <div className="mt-2.5 rounded border border-[#8fd6b8]/30 bg-[#0f2b22]/50 px-4 py-2 text-xs text-[#a9e3cb]">
-              Упали? Один раз за поездку проводник даст вопрос — ответите верно и вернётесь на то
-              же место. Ошибка — и маршрут с нуля.
+              Упали? Один раз за поездку проводник задаст вопрос — ответите верно и вернётесь на то
+              же место. Ошибка — и весь забег с начала.
             </div>
 
             <div className="rise-in-3 mt-6 flex flex-wrap items-center justify-between gap-4">
