@@ -44,15 +44,16 @@ export interface HudData {
   level: number;
   levelName: string;
   progress: number;
-  revive: boolean;
+  revivesLeft: number;
+  quizRound: number;
 }
 
-// 4 уровня маршрута: 100 + 200 + 300 + 300 очков (порог — накопительный)
+// 4 уровня маршрута: 200 + 300 + 450 + 450 очков (порог — накопительный)
 export const LEVELS = [
-  { name: 'ОТПРАВЛЕНИЕ', to: 100 },
-  { name: 'РАЗГОН', to: 300 },
-  { name: 'ПЕРЕГОН', to: 600 },
-  { name: 'ФИНАЛЬНЫЙ РЫВОК', to: 900 },
+  { name: 'ОТПРАВЛЕНИЕ', to: 200 },
+  { name: 'РАЗГОН', to: 500 },
+  { name: 'ПЕРЕГОН', to: 950 },
+  { name: 'ФИНАЛЬНЫЙ РЫВОК', to: 1400 },
 ];
 
 // Доля уровня, на которой дверь тамбура своим правым краем доходит до правого
@@ -270,7 +271,9 @@ export class PlatskartGame {
   private shake = 0;
   private deathT = 0;
   private invincibleT = 0;
-  private revivalUsed = false;
+  // Три попытки возрождения — каждая через вопрос проводника
+  private revivesLeft = 3;
+  private quizRound = 0;
   private level = 1;
   godMode = false;
 
@@ -377,7 +380,8 @@ export class PlatskartGame {
     this.milestoneNext = 500;
     this.stationIdx = 0;
     this.invincibleT = 0;
-    this.revivalUsed = false;
+    this.revivesLeft = 3;
+    this.quizRound = 0;
     this.level = 1;
     this.levelEnd = false;
     this.transT = 0;
@@ -451,7 +455,6 @@ export class PlatskartGame {
   // Верный ответ в квизе: пассажир встаёт на том же месте, путь впереди расчищен
   revive() {
     if (this.state !== 'quiz') return;
-    this.revivalUsed = true;
     this.obstacles = [];
     this.py = GROUND_Y;
     this.vy = 0;
@@ -472,11 +475,19 @@ export class PlatskartGame {
     this.setState('playing');
   }
 
-  // Неверный ответ: маршрут начинается сначала
+  // Неверный ответ: минус одна жизнь, проводница задаёт новый вопрос.
+  // Когда жизни кончились — полный сброс маршрута.
   failQuiz() {
     if (this.state !== 'quiz') return;
-    this.hooks.onToast('НЕВЕРНО — МАРШРУТ СНАЧАЛА');
-    this.start();
+    this.revivesLeft--;
+    if (this.revivesLeft > 0) {
+      this.quizRound++;
+      this.hooks.onToast(`НЕВЕРНО — ОСТАЛОСЬ ПОПЫТОК: ${this.revivesLeft}`);
+      this.pushHud(true);
+    } else {
+      this.hooks.onToast('НЕВЕРНО — МАРШРУТ СНАЧАЛА');
+      this.start();
+    }
   }
 
   // Отказ от возрождения: обычная конечная
@@ -564,8 +575,8 @@ export class PlatskartGame {
     const kmh = Math.round((this.speed * 0.0952) / 5) * 5;
     const lv = levelForScore(s);
     const prog = Math.round(levelProgress(s) * 100) / 100;
-    const rev = !this.revivalUsed;
-    const key = `${s}|${this.best}|${kmh}|${this.newBest}|${lv}|${prog}|${rev}`;
+    const rev = this.revivesLeft;
+    const key = `${s}|${this.best}|${kmh}|${this.newBest}|${lv}|${prog}|${rev}|${this.quizRound}`;
     if (force || key !== this.lastHud) {
       this.lastHud = key;
       this.hooks.onHud({
@@ -576,7 +587,8 @@ export class PlatskartGame {
         level: lv,
         levelName: LEVELS[lv - 1].name,
         progress: prog,
-        revive: rev,
+        revivesLeft: rev,
+        quizRound: this.quizRound,
       });
     }
   }
@@ -1040,8 +1052,11 @@ export class PlatskartGame {
       this.py += this.vy * dt;
       if (this.py > GROUND_Y) this.py = GROUND_Y;
       if (this.deathT >= 1.1) {
-        if (!this.revivalUsed) this.setState('quiz');
-        else this.setState('gameover');
+        if (this.revivesLeft > 0) {
+          this.quizRound++;
+          this.pushHud(true);
+          this.setState('quiz');
+        } else this.setState('gameover');
       }
       return;
     }

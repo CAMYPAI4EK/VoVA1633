@@ -84,16 +84,31 @@ const fmt = (n: number) => String(Math.max(0, Math.floor(n))).padStart(5, '0');
 /* ---------- квиз возрождения ---------- */
 
 function QuizOverlay({
+  round,
+  lives,
   onCorrect,
   onWrong,
   onSkip,
 }: {
+  round: number;
+  lives: number;
   onCorrect: () => void;
   onWrong: () => void;
   onSkip: () => void;
 }) {
-  const [q] = useState<QuizQuestion>(() => pickQuestion());
+  const [q, setQ] = useState<QuizQuestion>(() => pickQuestion());
   const [picked, setPicked] = useState<number | null>(null);
+  const firstRound = useRef(true);
+
+  // Новый раунд (ошибка с оставшимися жизнями) — новый случайный вопрос
+  useEffect(() => {
+    if (firstRound.current) {
+      firstRound.current = false;
+      return;
+    }
+    setQ(pickQuestion());
+    setPicked(null);
+  }, [round]);
 
   const answer = (i: number) => {
     if (picked !== null) return;
@@ -112,15 +127,24 @@ function QuizOverlay({
             ВОПРОС ПРОВОДНИКА
           </div>
           <div className="flex items-center gap-2 font-display text-[8px] text-[#8fd6b8]">
-            <span className="hud-pulse inline-block h-2 w-2 rounded-full bg-[#8fd6b8] shadow-[0_0_8px_#8fd6b8]" />
-            ВОЗРОЖДЕНИЕ
+            <span className="flex items-center gap-1">
+              {Array.from({ length: Math.max(0, lives) }).map((_, i) => (
+                <svg key={i} viewBox="0 0 24 24" className="h-3 w-3" aria-hidden>
+                  <path
+                    d="M12 21s-7.5-4.7-10-9.3C.4 8.6 2.4 4.5 6.2 4.5c2.2 0 3.9 1.2 4.8 3 .9-1.8 2.6-3 4.8-3 3.8 0 5.8 4.1 4.2 7.2C19.5 16.3 12 21 12 21z"
+                    fill="#8fd6b8"
+                  />
+                </svg>
+              ))}
+            </span>
+            {lives > 1 ? `ВОЗРОЖДЕНИЕ · ПОПЫТОК: ${lives}` : 'ПОСЛЕДНЯЯ ПОПЫТКА'}
           </div>
         </div>
 
         <p className="mt-4 text-sm leading-relaxed text-rail-200/85">
           Володя упал, но поезд ещё можно догнать. Ответьте верно — и он вернётся в вагон{' '}
-          <span className="font-medium text-lamp-300">на то же место</span>. Ошибётесь — маршрут
-          начнётся сначала.
+          <span className="font-medium text-lamp-300">на то же место</span>. Ошибётесь — минус
+          жизнь и новый вопрос. Кончились жизни — маршрут с начала.
         </p>
 
         <div className="mt-4 rounded border border-lamp-500/25 bg-wagon-900/60 px-4 py-3.5 text-base font-medium leading-snug text-rail-100">
@@ -154,7 +178,11 @@ function QuizOverlay({
               picked === q.correct ? 'text-[#8fd6b8]' : 'text-[#ff8a70]'
             }`}
           >
-            {picked === q.correct ? 'ВЕРНО! ВОЗВРАЩАЕМСЯ В ВАГОН…' : 'НЕВЕРНО. ПОЕЗД УШЁЛ БЕЗ ВАС…'}
+            {picked === q.correct
+              ? 'ВЕРНО! ВОЗВРАЩАЕМСЯ В ВАГОН…'
+              : lives > 1
+                ? 'НЕВЕРНО! ПРОВОДНИЦА ДАЁТ ЕЩЁ ВОПРОС…'
+                : 'НЕВЕРНО. ПОЕЗД УШЁЛ БЕЗ ВАС…'}
           </div>
         )}
 
@@ -251,9 +279,13 @@ function drawCover(
 
 /* ---------- фотоальбом ---------- */
 
-function PhotoCanvas({ art, id }: { art: PhotoArt; id: number }) {
+function PhotoCanvas({ art, id, zoom = false }: { art: PhotoArt; id: number; zoom?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const custom = useCustomPhoto(id);
+  // в увеличенном виде рисуем в два раза крупнее, чтобы всё было чётко
+  const px = zoom ? 14 : 7;
+  const cw = zoom ? 756 : 378;
+  const ch = zoom ? 504 : 252;
   useEffect(() => {
     const c = ref.current;
     if (!c) return;
@@ -261,8 +293,8 @@ function PhotoCanvas({ art, id }: { art: PhotoArt; id: number }) {
     if (!ctx) return;
     if (custom) {
       // своя фотография — рисуем в высоком разрешении, сглаженно
-      const W = 378;
-      const HH = 252;
+      const W = cw;
+      const HH = ch;
       if (c.width !== W) c.width = W;
       if (c.height !== HH) c.height = HH;
       ctx.imageSmoothingEnabled = true;
@@ -270,15 +302,15 @@ function PhotoCanvas({ art, id }: { art: PhotoArt; id: number }) {
       drawCover(ctx, custom, 0, 0, W, HH);
     } else {
       // пиксель-арт
-      const W = art.w * 7;
-      const HH = art.rows.length * 7;
+      const W = art.w * px;
+      const HH = art.rows.length * px;
       if (c.width !== W) c.width = W;
       if (c.height !== HH) c.height = HH;
       ctx.imageSmoothingEnabled = false;
       ctx.clearRect(0, 0, W, HH);
-      drawSprite(ctx, art, 0, 0, 7);
+      drawSprite(ctx, art, 0, 0, px);
     }
-  }, [art, custom]);
+  }, [art, custom, px, cw, ch]);
   return (
     <canvas
       ref={ref}
@@ -298,11 +330,22 @@ function AlbumOverlay({
   onReset: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const [zoomed, setZoomed] = useState<PhotoArt | null>(null);
   useEffect(() => {
     if (!confirming) return;
     const t = window.setTimeout(() => setConfirming(false), 2600);
     return () => window.clearTimeout(t);
   }, [confirming]);
+
+  // увеличенное фото закрывается по Esc
+  useEffect(() => {
+    if (!zoomed) return;
+    const h = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setZoomed(null);
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [zoomed]);
 
   const collected = new Set(album);
   const full = album.length >= PHOTOS.length;
@@ -319,7 +362,8 @@ function AlbumOverlay({
               <h2 className="amber-glow mt-2 font-display text-2xl sm:text-3xl">ФОТОАЛЬБОМ</h2>
               <p className="mt-2 max-w-md text-xs text-rail-200/70">
                 Снимки находятся по пути — в воздухе и под ногами. Очков за них не дают, зато
-                дорога останется на память. Альбом сохраняется между поездками.
+                дорога останется на память. Нажмите на снимок, чтобы рассмотреть поближе. Альбом
+                сохраняется между поездками.
               </p>
             </div>
             <div className="text-right">
@@ -357,7 +401,17 @@ function AlbumOverlay({
             collected.has(p.id) ? (
               <div
                 key={p.id}
-                className={`photo-card rounded-sm bg-[#f2ead9] p-2 pb-3 shadow-[0_6px_18px_rgba(0,0,0,0.45)] ${
+                role="button"
+                tabIndex={0}
+                title="Нажмите, чтобы увеличить"
+                onClick={() => setZoomed(p)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setZoomed(p);
+                  }
+                }}
+                className={`photo-card cursor-pointer rounded-sm bg-[#f2ead9] p-2 pb-3 shadow-[0_6px_18px_rgba(0,0,0,0.45)] ${
                   i % 2 ? 'rotate-1' : '-rotate-1'
                 }`}
               >
@@ -406,6 +460,36 @@ function AlbumOverlay({
           </button>
         </div>
       </div>
+
+      {/* -------- увеличенное фото -------- */}
+      {zoomed && (
+        <div
+          className="fixed inset-0 z-[70] flex cursor-zoom-out items-center justify-center bg-[rgba(4,9,7,0.85)] p-4"
+          onClick={() => setZoomed(null)}
+        >
+          <div
+            className="board-in w-[min(780px,94vw)] cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="rounded-sm bg-[#f2ead9] p-3 pb-4 shadow-[0_22px_60px_rgba(0,0,0,0.65)]">
+              <PhotoCanvas art={zoomed} id={zoomed.id} zoom />
+              <div className="mt-3 flex items-center justify-center gap-3">
+                <span className="h-px flex-1 bg-[#3a2f22]/25" />
+                <span className="text-center font-display text-[10px] leading-snug text-[#3a2f22]">
+                  {String(zoomed.id).padStart(2, '0')} · {zoomed.title.toUpperCase()}
+                </span>
+                <span className="h-px flex-1 bg-[#3a2f22]/25" />
+              </div>
+            </div>
+            <button
+              className="btn-ghost mx-auto mt-4 block rounded-md px-5 py-2.5 text-[9px] tracking-widest"
+              onClick={() => setZoomed(null)}
+            >
+              ЗАКРЫТЬ — ESC
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -424,7 +508,8 @@ function PlatskartApp() {
     level: 1,
     levelName: LEVELS[0].name,
     progress: 0,
-    revive: true,
+    revivesLeft: 3,
+    quizRound: 0,
   });
   const [muted, setMuted] = useState(false);
   const [god, setGod] = useState(false);
@@ -570,12 +655,19 @@ function PlatskartApp() {
                 <PauseIcon />
               </button>
             )}
-            {inRun && hud.revive && (
+            {inRun && hud.revivesLeft > 0 && (
               <div
-                className="flex h-9 w-9 items-center justify-center rounded-md border border-[#8fd6b8]/40 bg-[#0f2b22]/85 text-center font-display text-[7px] leading-none text-[#8fd6b8]"
-                title="Доступно одно возрождение — ответьте на вопрос проводника"
+                className="flex h-9 items-center gap-1.5 rounded-md border border-[#8fd6b8]/40 bg-[#0f2b22]/85 px-2.5"
+                title={`Попытки возрождения: ${hud.revivesLeft} из 3 — каждая через вопрос проводницы`}
               >
-                1×
+                {Array.from({ length: hud.revivesLeft }).map((_, i) => (
+                  <svg key={i} viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden>
+                    <path
+                      d="M12 21s-7.5-4.7-10-9.3C.4 8.6 2.4 4.5 6.2 4.5c2.2 0 3.9 1.2 4.8 3 .9-1.8 2.6-3 4.8-3 3.8 0 5.8 4.1 4.2 7.2C19.5 16.3 12 21 12 21z"
+                      fill="#8fd6b8"
+                    />
+                  </svg>
+                ))}
               </div>
             )}
           </div>
@@ -714,7 +806,7 @@ function PlatskartApp() {
                 <span className="font-display text-[8px] tracking-widest text-rail-200/60">
                   УРОВНИ МАРШРУТА
                 </span>
-                <span className="font-display text-[7px] text-lamp-500/80">900 ОЧКОВ = КОНЕЦ ПУТИ</span>
+                <span className="font-display text-[7px] text-lamp-500/80">1400 ОЧКОВ = КОНЕЦ ПУТИ</span>
               </div>
               <div className="mt-3 flex items-start">
                 {LEVELS.map((L, i) => (
@@ -756,8 +848,8 @@ function PlatskartApp() {
               </div>
             </div>
             <div className="mt-2.5 rounded border border-[#8fd6b8]/30 bg-[#0f2b22]/50 px-4 py-2 text-xs text-[#a9e3cb]">
-              Упали? Один раз за поездку проводник задаст вопрос — ответите верно и вернётесь на то
-              же место. Ошибка — и весь забег с начала.
+              Упали? Проводница задаст вопрос — у вас 3 попытки. Ответите верно — Володя вернётся
+              на то же место, ошибётесь — минус жизнь. Кончились жизни — весь забег с начала.
             </div>
 
             <div className="rise-in-3 mt-6 flex flex-wrap items-center justify-between gap-4">
@@ -798,6 +890,8 @@ function PlatskartApp() {
 
       {gs === 'quiz' && (
         <QuizOverlay
+          round={hud.quizRound}
+          lives={hud.revivesLeft}
           onCorrect={() => eng()?.revive()}
           onWrong={() => eng()?.failQuiz()}
           onSkip={() => eng()?.skipRevive()}
