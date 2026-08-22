@@ -1,20 +1,16 @@
 // ============================================================
 //  ВОПРОСЫ ПРОВОДНИКА (квиз при возрождении)
 //
-//  Данные: src/game/questions.txt (встраивается в сборку).
+//  Данные: public/questions.txt — читается в РАНТАЙМЕ (fetch),
+//  поэтому файл НЕ участвует в сборке и не может сломать запуск.
 //
 //  Логика:
-//    - если в файле НЕТ вопросов (пуст или только комментарии) —
-//      работает ПЕРВИЧНАЯ заглушка;
-//    - если вопросы ЕСТЬ — при каждой смерти выбирается
+//    - если вопросов нет (файл пуст / не найден / не распарсился)
+//      — работает ПЕРВИЧНАЯ заглушка;
+//    - если вопросы есть — при каждой смерти выбирается
 //      СЛУЧАЙНЫЙ вопрос, а варианты ПЕРЕМЕШИВАЮТСЯ (Фишер–Йетс),
 //      чтобы правильный ответ не стоял на одном и том же месте.
-//
-//  Парсер максимально защищён: любая некорректная строка или
-//  ошибка разбора просто пропускается, игра не ломается.
 // ============================================================
-
-import questionsRaw from './questions.txt?raw';
 
 export interface QuizQuestion {
   question: string;
@@ -28,54 +24,79 @@ interface RawQuestion {
   wrongs: string[];
 }
 
-function parseQuestions(text: string): RawQuestion[] {
-  const out: RawQuestion[] = [];
-  try {
-    for (const line of String(text ?? '').split('\n')) {
-      const t = line.trim();
-      // пустые строки и комментарии
-      if (!t || t.startsWith('#') || t.startsWith('//')) continue;
-      // всё, что в двойных кавычках
-      const parts = [...t.matchAll(/"([^"]*)"/g)].map((m) => m[1].trim());
-      // минимум 5 цитат: вопрос + правильный + 3 неправильных
-      if (parts.length < 5) continue;
-      out.push({ question: parts[0], correct: parts[1], wrongs: parts.slice(2, 5) });
-    }
-  } catch {
-    return out; // что успели разобрать — то и используем
-  }
-  return out;
-}
-
-let PARSED: RawQuestion[] = [];
-try {
-  PARSED = parseQuestions(questionsRaw);
-} catch {
-  PARSED = [];
-}
-
-/** Первичная заглушка — работает, пока файл без вопросов. */
+/** Первичная заглушка — показывается, пока файл без вопросов. */
 const FALLBACK: RawQuestion = {
   question: 'ЗАГЛУШКА: здесь появится вопрос из вашего файла. Пока правильный ответ — четвёртый.',
   correct: '4.',
   wrongs: ['1.', '2.', '3.'],
 };
 
-/** Сколько вопросов распознано в файле. */
-export const QUIZ_COUNT = PARSED.length;
+let QUESTIONS: RawQuestion[] = [];
+let loaded = false;
 
-// Отчёт в консоль: где лежат вопросы и какой режим активен.
-console.info(
-  '[квиз проводника] файл с вопросами: src/game/questions.txt · распознано: ' +
-    PARSED.length +
-    ' · режим: ' +
-    (PARSED.length > 0 ? 'случайный вопрос из файла' : 'заглушка (файл без вопросов)'),
-);
+function parseQuestions(text: string): RawQuestion[] {
+  const out: RawQuestion[] = [];
+  for (const line of String(text ?? '').split('\n')) {
+    const t = line.trim();
+    // пустые строки и комментарии
+    if (!t || t.startsWith('#') || t.startsWith('//')) continue;
+    // всё, что в двойных кавычках
+    const parts = [...t.matchAll(/"([^"]*)"/g)].map((m) => m[1].trim());
+    // минимум 5 цитат: вопрос + правильный + 3 неправильных
+    if (parts.length < 5) continue;
+    out.push({ question: parts[0], correct: parts[1], wrongs: parts.slice(2, 5) });
+  }
+  return out;
+}
+
+async function tryFetch(url: string): Promise<string | null> {
+  try {
+    const r = await fetch(url, { cache: 'no-cache' });
+    if (!r.ok) return null;
+    return await r.text();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Загружает вопросы один раз при старте игры. Вызывается из App.
+ * Никогда не бросает исключений: любая ошибка → заглушка.
+ */
+export async function loadQuestions(): Promise<number> {
+  if (loaded) return QUESTIONS.length;
+  let text: string | null = null;
+  // пробуем несколько путей: и относительный, и от корня
+  for (const url of ['./questions.txt', '/questions.txt', 'questions.txt']) {
+    text = await tryFetch(url);
+    if (text !== null) break;
+  }
+  if (text !== null) {
+    try {
+      QUESTIONS = parseQuestions(text);
+    } catch {
+      QUESTIONS = [];
+    }
+  }
+  loaded = true;
+  console.info(
+    '[квиз проводника] файл: public/questions.txt · распознано: ' +
+      QUESTIONS.length +
+      ' · режим: ' +
+      (QUESTIONS.length > 0 ? 'случайный вопрос из файла' : 'заглушка'),
+  );
+  return QUESTIONS.length;
+}
+
+/** Сколько вопросов сейчас доступно (для отладки/интерфейса). */
+export function quizCount(): number {
+  return QUESTIONS.length;
+}
 
 /** Случайный вопрос со случайно перемешанными вариантами ответа. */
 export function pickQuestion(): QuizQuestion {
   const src =
-    PARSED.length > 0 ? PARSED[Math.floor(Math.random() * PARSED.length)] : FALLBACK;
+    QUESTIONS.length > 0 ? QUESTIONS[Math.floor(Math.random() * QUESTIONS.length)] : FALLBACK;
 
   const deck = [
     { text: src.correct, good: true },

@@ -2,7 +2,7 @@ import { Component, Fragment, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { LEVELS, PlatskartGame } from './game/engine';
 import type { GameState, HudData } from './game/engine';
-import { pickQuestion } from './game/quiz';
+import { loadQuestions, pickQuestion } from './game/quiz';
 import type { QuizQuestion } from './game/quiz';
 import { PHOTOS, drawSprite } from './game/sprites';
 import type { PhotoArt } from './game/sprites';
@@ -448,6 +448,9 @@ function PlatskartApp() {
         }),
     });
     engRef.current = eng;
+    // вопросы для квиза проводника читаются один раз при старте;
+    // при любой ошибке игра просто покажет заглушку
+    loadQuestions();
     return () => {
       eng.destroy();
       engRef.current = null;
