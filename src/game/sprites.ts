@@ -392,7 +392,7 @@ export interface PhotoArt extends Sprite {
 export const PHOTOS: PhotoArt[] = [
   {
     id: 1,
-    title: 'Вокзал Новосибирск',
+    title: 'Билет Тани',
     w: 18,
     pal: { s: '#b8d9e6', g: '#2e6b4f', r: '#a8503a', c: '#f2e6c8', d: '#241d18' },
     rows: [
@@ -412,7 +412,7 @@ export const PHOTOS: PhotoArt[] = [
   },
   {
     id: 2,
-    title: 'Проводница',
+    title: 'Билет Вовы',
     w: 18,
     pal: { v: '#2f4a41', u: '#7a2f3a', h: '#5e3a26', s: '#f0b587', e: '#20222a', w: '#f2e6c8' },
     rows: [
@@ -432,7 +432,7 @@ export const PHOTOS: PhotoArt[] = [
   },
   {
     id: 3,
-    title: 'Самовар',
+    title: 'Остановка Пермь 2',
     w: 18,
     pal: { a: '#8a5a33', y: '#d8b25e', Y: '#8a6a2a', d: '#3a2814', w: '#e8dcc8', t: '#5e3a1e' },
     rows: [
@@ -452,7 +452,7 @@ export const PHOTOS: PhotoArt[] = [
   },
   {
     id: 4,
-    title: 'Чай в подстаканнике',
+    title: 'Остановка Адлер',
     w: 18,
     pal: { v: '#2f4a41', c: '#c9a24a', C: '#8a6a2a', g: '#f5e6c8', t: '#b5651d', w: '#e8dcc8' },
     rows: [
@@ -472,7 +472,7 @@ export const PHOTOS: PhotoArt[] = [
   },
   {
     id: 5,
-    title: 'Берёзки',
+    title: 'Остановка Москва',
     w: 18,
     pal: {
       s: '#bfe0e8',
@@ -500,7 +500,7 @@ export const PHOTOS: PhotoArt[] = [
   },
   {
     id: 6,
-    title: 'Мост через Обь',
+    title: 'С окичем',
     w: 18,
     pal: { s: '#eeb56e', y: '#ffe08a', k: '#2f3a46', d: '#141a22', b: '#3a6e8a', B: '#5a92ab' },
     rows: [
@@ -520,7 +520,7 @@ export const PHOTOS: PhotoArt[] = [
   },
   {
     id: 7,
-    title: 'Омск',
+    title: 'Адыхает фея',
     w: 18,
     pal: {
       s: '#b8d9e6',
@@ -548,7 +548,7 @@ export const PHOTOS: PhotoArt[] = [
   },
   {
     id: 8,
-    title: 'Тюмень',
+    title: 'Адыхаю в пати',
     w: 18,
     pal: { o: '#d97f4a', O: '#eeb56e', K: '#241d18', g: '#3a2a1a' },
     rows: [
@@ -568,7 +568,7 @@ export const PHOTOS: PhotoArt[] = [
   },
   {
     id: 9,
-    title: 'Уральские горы',
+    title: 'Розыск',
     w: 18,
     pal: { s: '#b8d9e6', W: '#f2f2ee', M: '#6a7280', g: '#2e6b4f', G: '#1f4a38' },
     rows: [
@@ -588,7 +588,7 @@ export const PHOTOS: PhotoArt[] = [
   },
   {
     id: 10,
-    title: 'Екатеринбург',
+    title: 'На охоте',
     w: 18,
     pal: { s: '#b8d9e6', W: '#e8e8e2', w: '#c4c4ba', d: '#241d18', g: '#5c8a42' },
     rows: [
@@ -608,7 +608,7 @@ export const PHOTOS: PhotoArt[] = [
   },
   {
     id: 11,
-    title: 'Река Кама',
+    title: 'Привет Уник',
     w: 18,
     pal: { s: '#b8d9e6', y: '#ffe08a', b: '#3a6e8a', B: '#5a92ab', k: '#241d18', r: '#a8322e' },
     rows: [
@@ -628,7 +628,7 @@ export const PHOTOS: PhotoArt[] = [
   },
   {
     id: 12,
-    title: 'Казань',
+    title: 'Делаем дела',
     w: 18,
     pal: { s: '#b8d9e6', y: '#ffcf5e', w: '#e8e0cc', d: '#241d18' },
     rows: [
@@ -648,7 +648,7 @@ export const PHOTOS: PhotoArt[] = [
   },
   {
     id: 13,
-    title: 'Нижний Новгород',
+    title: 'Сынок',
     w: 18,
     pal: { s: '#b8d9e6', r: '#a8322e', R: '#7d2622', w: '#e8e0cc', g: '#2e6b4f', d: '#241d18' },
     rows: [
@@ -668,7 +668,7 @@ export const PHOTOS: PhotoArt[] = [
   },
   {
     id: 14,
-    title: 'Владимир',
+    title: 'Малой',
     w: 18,
     pal: { s: '#b8d9e6', W: '#e8e0cc', y: '#ffcf5e', d: '#241d18', g: '#5c8a42' },
     rows: [
@@ -688,7 +688,7 @@ export const PHOTOS: PhotoArt[] = [
   },
   {
     id: 15,
-    title: 'Подмосковье',
+    title: 'Глазки',
     w: 18,
     pal: {
       s: '#b8d9e6',
@@ -717,7 +717,7 @@ export const PHOTOS: PhotoArt[] = [
   },
   {
     id: 16,
-    title: 'Москва',
+    title: 'Уник ВСЁ!!!',
     w: 18,
     pal: { n: '#14243a', w: '#f2e6c8', S: '#ff3b30', g: '#2e6b4f', r: '#a8322e', R: '#7d2622', c: '#f2e6c8', d: '#0d1420' },
     rows: [
