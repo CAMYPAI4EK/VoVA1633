@@ -55,6 +55,12 @@ export const LEVELS = [
   { name: 'ФИНАЛЬНЫЙ РЫВОК', to: 900 },
 ];
 
+// Доля уровня, на которой дверь тамбура своим правым краем доходит до правого
+// края экрана и камера замирает — дальше персонаж добегает до входа сам.
+const CAM_STOP_PROG = 0.88;
+// Ширина двери тамбура (расстояние от её левого края до правого).
+const DOOR_RIGHT = 166;
+
 export function levelForScore(s: number): number {
   if (s < LEVELS[0].to) return 1;
   if (s < LEVELS[1].to) return 2;
@@ -276,6 +282,10 @@ export class PlatskartGame {
   private preTransSpeed = BASE_SPEED;
   private transStepT = 0;
 
+  // камера замерла у правого края — персонаж сам добегает до входа в тамбур
+  private levelEnd = false;
+  private levelEndRunSpeed = 0;
+
   private finaleT = 0;
   private finaleStartSpeed = 0;
   private tanyaX = -100;
@@ -369,6 +379,7 @@ export class PlatskartGame {
     this.invincibleT = 0;
     this.revivalUsed = false;
     this.level = 1;
+    this.levelEnd = false;
     this.transT = 0;
     this.transPhase = 'walk';
     this.transLevel = 1;
@@ -1060,6 +1071,48 @@ export class PlatskartGame {
     }
 
     // ---- playing ----
+    // Конец вагона: дверь тамбура дошла правым краем до края экрана, камера
+    // замерла — персонаж сам добегает до входа, затем переход в следующий вагон.
+    if (this.levelEnd) {
+      const thr = LEVELS[this.level - 1].to;
+      const doorX = this.w - DOOR_RIGHT;
+      this.runT += dt * 2.6;
+      this.playerX += this.levelEndRunSpeed * dt;
+      // если конец вагона застал в прыжке — мягко приземляемся на бегу
+      if (!this.grounded) {
+        this.vy += GRAV * dt;
+        this.py += this.vy * dt;
+        if (this.py >= GROUND_Y) {
+          this.py = GROUND_Y;
+          this.vy = 0;
+          this.grounded = true;
+        }
+      }
+      // счёт чуть капает, но не достигает порога, пока не добежим до двери
+      this.score = Math.min(thr - 0.5, this.score + this.levelEndRunSpeed * dt * 0.03);
+      this.stepTimer -= dt;
+      if (this.stepTimer <= 0) {
+        this.stepTimer = 0.3;
+        this.sound.tick(true);
+        this.dust(this.playerX - 10, GROUND_Y, 2);
+      }
+      if (this.playerX >= doorX - 6) {
+        // добежал до входа — завершаем уровень и уходим в тамбур
+        this.score = thr;
+        this.levelEnd = false;
+        this.playerX = clamp(this.w * 0.2, 80, 230);
+        this.pushHud(true);
+        // дальше обычный поток ниже: lv > level → startTransition
+      } else {
+        this.pushHud();
+        return;
+      }
+    } else if (this.level < 4 && levelProgress(this.score) >= CAM_STOP_PROG) {
+      // дверь тамбура правым краем у правого края экрана — останавливаем камеру
+      this.levelEnd = true;
+      this.levelEndRunSpeed = Math.max(330, this.speed * 0.6);
+    }
+
     this.speed = Math.min(MAX_SPEED, this.speed + dt * (this.speed < 700 ? 13.5 : 9));
     this.worldX += this.speed * dt;
     this.score += this.speed * dt * 0.03;
@@ -1493,12 +1546,19 @@ export class PlatskartGame {
     const lv = this.level;
     if (lv >= 4) return; // 4-й уровень заканчивается финалом со свадьбой
     const prog = levelProgress(this.score);
-    if (prog < 0.76) return;
-    // дверь появляется у правого края и подъезжает к игроку ровно к порогу уровня
-    const k = clamp((prog - 0.78) / 0.22, 0, 1);
-    const doorX = w + 220 - k * (w + 220 - (this.playerX + 190));
+    if (prog < 0.74 && !this.levelEnd) return;
     const groundY = GROUND_Y + wob;
     const dy = 176 + wob * 0.8;
+    let doorX: number;
+    if (this.levelEnd) {
+      // камера замерла — дверь стоит правым краем у правого края экрана
+      doorX = w - DOOR_RIGHT;
+    } else {
+      // дверь подплывает справа и к моменту остановки камеры доходит
+      // своим правым краем ровно до правого края экрана
+      const k = clamp((prog - 0.76) / (CAM_STOP_PROG - 0.76), 0, 1);
+      doorX = w + 220 - k * (220 + DOOR_RIGHT);
+    }
 
     // предупреждающая жёлто-чёрная разметка на полу перед дверью
     for (let sx = doorX - 180; sx < doorX - 20; sx += 24) {
