@@ -1480,8 +1480,8 @@ export class PlatskartGame {
     ctx.arc(bulbX, 92, 8, 0, Math.PI * 2);
     ctx.fill();
 
-    // табличка, подвешенная на цепях (покачивается)
-    const sway = Math.sin(this.t * 1.7) * 0.03;
+    // табличка, подвешенная на цепях (едва покачивается)
+    const sway = Math.sin(this.t * 1.7) * 0.012;
     const bx = w * 0.37;
     const by = 126;
     ctx.save();
@@ -1496,17 +1496,24 @@ export class PlatskartGame {
     ctx.moveTo(bx + 108, 99);
     ctx.lineTo(bx + 108, by);
     ctx.stroke();
-    rr(ctx, bx - 128, by, 256, 34, 5);
-    ctx.fillStyle = '#143026';
+    rr(ctx, bx - 132, by, 264, 36, 5);
+    ctx.fillStyle = '#0a1712';
     ctx.fill();
     ctx.strokeStyle = '#ffc24b';
     ctx.lineWidth = 2;
     ctx.stroke();
-    ctx.font = '7px "Press Start 2P"';
+    rr(ctx, bx - 127, by + 5, 254, 26, 3);
+    ctx.strokeStyle = 'rgba(255,194,75,0.35)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.font = '8px "Press Start 2P"';
     ctx.textAlign = 'center';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+    ctx.strokeText('ТАНЯ ЖДЁТ В СЛЕДУЮЩЕМ ВАГОНЕ', bx, by + 23);
     ctx.fillStyle = '#ffe3a6';
-    ctx.fillText('ТАНЯ ЖДЁТ В СЛЕДУЮЩЕМ ВАГОНЕ', bx, by + 21);
-    drawSprite(ctx, HEART_P, bx + 104, by + 8, 2);
+    ctx.fillText('ТАНЯ ЖДЁТ В СЛЕДУЮЩЕМ ВАГОНЕ', bx, by + 23);
+    drawSprite(ctx, HEART_P, bx + 106, by + 9, 2);
     ctx.restore();
 
     // пассажир
