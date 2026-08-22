@@ -243,6 +243,94 @@ export const FLOORBAG: Sprite = {
   ],
 };
 
+// ---------- ПРОВОДНИЦА ТАНЯ В СВАДЕБНОМ ПЛАТЬЕ ----------
+export const TANYA: Sprite = {
+  w: 16,
+  pal: {
+    t: '#d9a53f', // диадема
+    h: '#2b1f16', // волосы
+    s: '#f0b587', // кожа
+    e: '#20222a', // глаз
+    l: '#c94f4f', // губы
+    v: '#efe8ec', // фата
+    W: '#f7f4f0', // платье
+    S: '#d9d2dc', // тени платья
+    b: '#e86a8a', // букет
+    g: '#3e7d4f', // зелень букета
+    u: '#8a4a3a', // туфельки
+  },
+  rows: [
+    '................',
+    '.....tttttt.....',
+    '....hhhhhhhh....',
+    '...hhhhhhhhhh...',
+    '...hssssssshh...',
+    '...hsessesh.....',
+    '...ssssssss.....',
+    '....slllls......',
+    '....ssssss......',
+    '..vvvvvvvvvvv...',
+    '.vvWWWWWWWWvv...',
+    '.vWWWWWWWWWWv...',
+    'ssWbbWWWWWWW....',
+    '.WbbggWWWWWW....',
+    '.WWWWWWWWWWWW...',
+    '.WWWWWWWWWWWW...',
+    '.WWWWWWWWWWWW...',
+    '..WWWWWWWWWW....',
+    '.WWWWWWWWWWWW...',
+    'WWWWWWWWWWWWWW..',
+    'WWSSWWWWWWSSWW..',
+    'WWWWWWWWWWWWWW..',
+    '.WWWWWWWWWWWW...',
+    '....uu..uu......',
+  ],
+};
+
+// ---------- СЕРДЦА ----------
+export const HEART_R: Sprite = {
+  w: 7,
+  pal: { r: '#e04356' },
+  rows: ['.rr.rr.', 'rrrrrrr', 'rrrrrrr', '.rrrrr.', '..rrr..', '...r...'],
+};
+
+export const HEART_P: Sprite = {
+  w: 7,
+  pal: { r: '#ff8fb0' },
+  rows: ['.rr.rr.', 'rrrrrrr', 'rrrrrrr', '.rrrrr.', '..rrr..', '...r...'],
+};
+
+// ---------- БЕЛЫЕ ГОЛУБКИ ----------
+export const DOVE_A: Sprite = {
+  w: 12,
+  pal: { w: '#f5f2ea', e: '#20222a', o: '#e8912a' },
+  rows: [
+    '...ww.......',
+    '..wwww......',
+    '.wwwwwewoo..',
+    '..wwwwwwwo..',
+    '....wwww....',
+    '....wwww....',
+    '.....ww.....',
+    '......ww....',
+  ],
+};
+
+export const DOVE_B: Sprite = {
+  w: 12,
+  pal: { w: '#f5f2ea', e: '#20222a', o: '#e8912a' },
+  rows: [
+    '............',
+    '............',
+    '.wwwwwewoo..',
+    '..wwwwwwwo..',
+    '..wwwwww....',
+    '...wwwww....',
+    '..wwww......',
+    '.wwww.......',
+  ],
+};
+
 // ---------- ДОРОЖНАЯ СУМКА С ПОЛКИ ----------
 export const RACKBAG: Sprite = {
   w: 14,
