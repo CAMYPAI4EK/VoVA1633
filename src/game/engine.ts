@@ -28,8 +28,13 @@ export type GameState =
   | 'dying'
   | 'quiz'
   | 'gameover'
+  | 'transition'
   | 'finale'
   | 'wedding';
+
+// длительность проходки по тамбуру и открытия двери в следующий вагон
+const TRANS_WALK = 1.7;
+const TRANS_OPEN = 0.6;
 
 export interface HudData {
   score: number;
@@ -262,6 +267,15 @@ export class PlatskartGame {
   private revivalUsed = false;
   private level = 1;
   godMode = false;
+
+  // переход между вагонами (тамбур)
+  private transT = 0;
+  private transPhase: 'walk' | 'ready' | 'opening' = 'walk';
+  private transLevel = 1;
+  private transOpenT = 0;
+  private preTransSpeed = BASE_SPEED;
+  private transStepT = 0;
+
   private finaleT = 0;
   private finaleStartSpeed = 0;
   private tanyaX = -100;
@@ -308,6 +322,7 @@ export class PlatskartGame {
       e.preventDefault();
       this.sound.ensure();
       if (this.state === 'playing') this.jumpBuf = 0.12;
+      else if (this.state === 'transition') this.beginOpenDoor();
     };
 
     window.addEventListener('resize', this.onResize);
@@ -354,6 +369,11 @@ export class PlatskartGame {
     this.invincibleT = 0;
     this.revivalUsed = false;
     this.level = 1;
+    this.transT = 0;
+    this.transPhase = 'walk';
+    this.transLevel = 1;
+    this.transOpenT = 0;
+    this.transStepT = 0;
     this.finaleT = 0;
     this.tanyaX = -100;
     this.kissDone = false;
@@ -482,6 +502,7 @@ export class PlatskartGame {
   jumpPress() {
     this.sound.ensure();
     if (this.state === 'playing') this.jumpBuf = 0.12;
+    else if (this.state === 'transition') this.beginOpenDoor();
   }
 
   // ------------------------------------------------- ввод
@@ -494,6 +515,7 @@ export class PlatskartGame {
       else if (this.state === 'gameover' && this.stateT > 0.45) this.restart();
       else if (this.state === 'paused') this.togglePause();
       else if (this.state === 'playing') this.jumpBuf = 0.12;
+      else if (this.state === 'transition') this.beginOpenDoor();
       return;
     }
     if (c === 'ArrowDown' || c === 'KeyS') {
@@ -683,6 +705,66 @@ export class PlatskartGame {
     this.pushHud(true);
     this.hooks.onToast('СТОП-КРАН!');
     this.setState('dying');
+  }
+
+  // ------------------------------------------------- переход между вагонами
+  private startTransition(lv: number) {
+    this.transLevel = lv;
+    this.transT = 0;
+    this.transPhase = 'walk';
+    this.transOpenT = 0;
+    this.transStepT = 0;
+    this.preTransSpeed = this.speed;
+    this.sound.doorOpen(); // дверь тамбура открылась
+    this.setState('transition');
+  }
+
+  private updateTransition(dt: number) {
+    this.transT += dt;
+    // поезд плавно замедляется, пока пассажир идёт по тамбуру
+    this.speed = Math.max(0, this.speed - 420 * dt);
+    this.worldX += this.speed * dt;
+
+    if (this.transPhase === 'walk') {
+      this.runT += dt * 2.4;
+      this.transStepT -= dt;
+      if (this.transStepT <= 0) {
+        this.transStepT = 0.34;
+        this.sound.tick(true);
+      }
+      if (this.transT >= TRANS_WALK) this.transPhase = 'ready';
+    } else if (this.transPhase === 'opening') {
+      this.transOpenT += dt;
+      this.runT += dt * 2.4;
+      if (this.transOpenT >= TRANS_OPEN) this.finishTransition();
+    }
+    // в фазе 'ready' ждём прыжок от игрока
+  }
+
+  private beginOpenDoor() {
+    if (this.transPhase !== 'ready') return;
+    this.transPhase = 'opening';
+    this.transOpenT = 0;
+    this.sound.doorOpen();
+  }
+
+  private finishTransition() {
+    this.level = this.transLevel;
+    // новый вагон — чистый проход
+    this.obstacles = [];
+    this.photos = [];
+    this.distSince = 0;
+    this.nextGap = 520;
+    this.nextPhoto = 3800 + rnd() * 1200;
+    this.speed = Math.min(MAX_SPEED, this.preTransSpeed + 55);
+    this.invincibleT = 1.4;
+    this.py = GROUND_Y;
+    this.vy = 0;
+    this.grounded = true;
+    this.sound.milestone();
+    this.hooks.onToast(`ВАГОН ${this.level}/4 — ${LEVELS[this.level - 1].name}`);
+    this.popup(`ВАГОН ${this.level}`, this.w / 2, 210, '#ffc24b');
+    this.setState('playing');
   }
 
   // ------------------------------------------------- финал: свадьба
@@ -958,6 +1040,11 @@ export class PlatskartGame {
       return;
     }
 
+    if (this.state === 'transition') {
+      this.updateTransition(dt);
+      return;
+    }
+
     if (this.state === 'gameover') return;
 
     if (this.state === 'wedding') {
@@ -978,19 +1065,16 @@ export class PlatskartGame {
     this.score += this.speed * dt * 0.03;
     if (this.invincibleT > 0) this.invincibleT -= dt;
 
-    // смена уровня маршрута
-    const lv = levelForScore(this.score);
-    if (lv > this.level) {
-      this.level = lv;
-      this.speed = Math.min(MAX_SPEED, this.speed + 55);
-      this.sound.milestone();
-      this.hooks.onToast(`УРОВЕНЬ ${lv}/4 — ${LEVELS[lv - 1].name}`);
-      this.popup(`УРОВЕНЬ ${lv}`, this.playerX + 30, this.py - 130, '#ffc24b');
-    }
-
-    // конец маршрута — финал со свадьбой
+    // конец маршрута — финал со свадьбой (приоритетнее перехода)
     if (this.score >= LEVELS[3].to) {
       this.startFinale();
+      return;
+    }
+
+    // смена уровня маршрута — переход через тамбур в следующий вагон
+    const lv = levelForScore(this.score);
+    if (lv > this.level) {
+      this.startTransition(lv);
       return;
     }
 
@@ -1173,7 +1257,7 @@ export class PlatskartGame {
     const wob = bob * 0.32;
     for (const o of this.obstacles) this.drawObstacle(ctx, o, wob);
     for (const pic of this.photos) this.drawPhoto(ctx, pic);
-    this.drawPlayer(ctx, wob);
+    if (this.state !== 'transition') this.drawPlayer(ctx, wob);
 
     // свадебная сценка
     if (this.state === 'finale' || this.state === 'wedding') this.drawFinale(ctx, wob);
@@ -1201,6 +1285,9 @@ export class PlatskartGame {
       }
     }
 
+    // переход между вагонами: тамбур
+    if (this.state === 'transition') this.drawVestibule(ctx, w, wob);
+
     // всплывающие подписи
     ctx.textAlign = 'center';
     ctx.font = '11px "Press Start 2P"';
@@ -1215,6 +1302,256 @@ export class PlatskartGame {
       ctx.fillText(p.text, tx, p.y);
     }
     ctx.globalAlpha = 1;
+  }
+
+  // ------------------------------------------------- тамбур (переход между вагонами)
+  private transCharX(w: number): number {
+    const from = w * 0.18;
+    const mid = w * 0.56;
+    if (this.transPhase === 'walk') {
+      const p = clamp(this.transT / TRANS_WALK, 0, 1);
+      const e = p * p * (3 - 2 * p); // плавный разгон/остановка шага
+      return from + (mid - from) * e;
+    }
+    if (this.transPhase === 'ready') return mid;
+    const p = clamp(this.transOpenT / TRANS_OPEN, 0, 1);
+    return mid + (w * 0.66 - mid) * p;
+  }
+
+  private drawVestibule(ctx: CanvasRenderingContext2D, w: number, wob: number) {
+    let alpha = clamp(this.transT / 0.3, 0, 1);
+    if (this.transPhase === 'opening') {
+      alpha = 1 - clamp((this.transOpenT - (TRANS_OPEN - 0.25)) / 0.25, 0, 1);
+    }
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    const gy = GROUND_Y + wob;
+
+    // стальная коробка тамбура
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#0e1418');
+    bg.addColorStop(0.5, '#16202a');
+    bg.addColorStop(1, '#101820');
+    ctx.fillStyle = bg;
+    ctx.fillRect(-20, -20, w + 40, H + 40);
+
+    // гофрированная обшивка
+    ctx.fillStyle = '#1b2731';
+    ctx.fillRect(-20, 96, w + 40, gy - 96);
+    const rib = ((this.worldX * 0.5) % 46 + 46) % 46;
+    ctx.fillStyle = 'rgba(255,255,255,0.045)';
+    for (let x = -rib - 46; x < w + 46; x += 46) ctx.fillRect(x, 100, 3, gy - 104);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    for (let x = -rib - 26; x < w + 46; x += 46) ctx.fillRect(x, 100, 2, gy - 104);
+
+    // потолок
+    ctx.fillStyle = '#0b1116';
+    ctx.fillRect(-20, -20, w + 40, 100);
+    ctx.fillStyle = '#232f3a';
+    ctx.fillRect(-20, 96, w + 40, 3);
+
+    // окно с проносящимися огнями
+    const winX = w * 0.36;
+    const winW = w * 0.16;
+    ctx.fillStyle = '#0a0f14';
+    rr(ctx, winX - 6, 150, winW + 12, 96, 8);
+    ctx.fill();
+    ctx.save();
+    rr(ctx, winX, 156, winW, 84, 5);
+    ctx.clip();
+    const sky = ctx.createLinearGradient(0, 156, 0, 240);
+    sky.addColorStop(0, '#08101c');
+    sky.addColorStop(1, '#0d1a2c');
+    ctx.fillStyle = sky;
+    ctx.fillRect(winX, 156, winW, 84);
+    const ls = this.worldX + this.t * 70;
+    for (let i = 0; i < 7; i++) {
+      const span = winW + 60;
+      const lx = winX + winW - (((ls * (1.5 + i * 0.2) + i * 90) % span + span) % span - 30);
+      const ly = 168 + hash(i * 3.7) * 60;
+      ctx.fillStyle = i % 2 ? 'rgba(255,196,90,0.8)' : 'rgba(150,190,255,0.7)';
+      ctx.fillRect(lx, ly, 10 + i * 2, 3);
+    }
+    ctx.restore();
+    ctx.strokeStyle = '#2c3a46';
+    ctx.lineWidth = 3;
+    rr(ctx, winX, 156, winW, 84, 5);
+    ctx.stroke();
+
+    // поручни
+    ctx.fillStyle = '#39424c';
+    ctx.fillRect(-20, 300, w + 40, 6);
+    ctx.fillStyle = '#4a545f';
+    ctx.fillRect(-20, 300, w + 40, 2);
+
+    // пол — рифлёный металл
+    const fg = ctx.createLinearGradient(0, gy, 0, H);
+    fg.addColorStop(0, '#2a333c');
+    fg.addColorStop(0.4, '#1e262e');
+    fg.addColorStop(1, '#141a20');
+    ctx.fillStyle = fg;
+    ctx.fillRect(-20, gy, w + 40, H - gy);
+    const fp = ((this.worldX) % 34 + 34) % 34;
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    for (let x = -fp - 34; x < w + 34; x += 34) {
+      let k = 0;
+      for (let y = gy + 8; y < H; y += 16) {
+        ctx.fillRect(x + (k % 2 ? 12 : 0), y, 8, 2);
+        k++;
+      }
+    }
+    ctx.fillStyle = '#3a444e';
+    ctx.fillRect(-20, gy, w + 40, 2);
+
+    // дверной проём позади (откуда пришли) — открыт
+    this.drawVestDoor(ctx, w * 0.02, gy);
+    // дверь в следующий вагон
+    const openP =
+      this.transPhase === 'opening' ? clamp(this.transOpenT / (TRANS_OPEN * 0.7), 0, 1) : 0;
+    this.drawNextDoor(ctx, w * 0.62, w * 0.16, gy, openP);
+
+    // лампочка
+    const flick = 0.8 + 0.2 * Math.sin(this.t * 13 + 1);
+    const bulbX = w * 0.47;
+    const glow = ctx.createRadialGradient(bulbX, 90, 4, bulbX, 90, 130);
+    glow.addColorStop(0, `rgba(255,210,120,${0.28 * flick})`);
+    glow.addColorStop(1, 'rgba(255,210,120,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(bulbX - 140, 0, 280, 300);
+    ctx.fillStyle = '#2c3a46';
+    ctx.fillRect(bulbX - 3, 60, 6, 22);
+    ctx.fillStyle = `rgba(255,224,150,${0.95 * flick})`;
+    ctx.beginPath();
+    ctx.arc(bulbX, 92, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // пассажир
+    const cx = this.transCharX(w);
+    const moving = this.transPhase !== 'ready';
+    const frame = moving ? (Math.floor(this.runT * 2.6) % 2 === 0 ? RUN_A : RUN_B) : RUN_A;
+    drawSprite(ctx, frame, cx - 22, gy - 68, 4);
+
+    // просьба нажать прыжок
+    if (this.transPhase === 'ready') {
+      const pulse = 0.55 + 0.45 * Math.sin(this.t * 5.5);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = `rgba(255,194,75,${pulse})`;
+      const ay = 200 + Math.sin(this.t * 5.5) * 6;
+      ctx.beginPath();
+      ctx.moveTo(w / 2, ay - 26);
+      ctx.lineTo(w / 2 - 14, ay - 8);
+      ctx.lineTo(w / 2 - 5, ay - 8);
+      ctx.lineTo(w / 2 - 5, ay + 6);
+      ctx.lineTo(w / 2 + 5, ay + 6);
+      ctx.lineTo(w / 2 + 5, ay - 8);
+      ctx.lineTo(w / 2 + 14, ay - 8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.font = '15px "Press Start 2P"';
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = 'rgba(8,12,10,0.9)';
+      ctx.strokeText('НАЖМИ ПРЫЖОК', w / 2, 246);
+      ctx.fillStyle = `rgba(255,194,75,${0.7 + 0.3 * pulse})`;
+      ctx.fillText('НАЖМИ ПРЫЖОК', w / 2, 246);
+      ctx.font = '9px "Press Start 2P"';
+      ctx.strokeText('ПРОБЕЛ / ↑ / ТАП', w / 2, 272);
+      ctx.fillStyle = 'rgba(232,224,204,0.75)';
+      ctx.fillText('ПРОБЕЛ / ↑ / ТАП', w / 2, 272);
+    }
+
+    // затемнение краёв
+    const vg = ctx.createLinearGradient(0, 0, w, 0);
+    vg.addColorStop(0, 'rgba(0,0,0,0.55)');
+    vg.addColorStop(0.25, 'rgba(0,0,0,0)');
+    vg.addColorStop(0.75, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,0.4)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(-20, -20, w + 40, H + 40);
+
+    ctx.restore();
+  }
+
+  private drawVestDoor(ctx: CanvasRenderingContext2D, x: number, gy: number) {
+    ctx.fillStyle = '#05080b';
+    rr(ctx, x, 130, 90, gy - 130, 4);
+    ctx.fill();
+    ctx.fillStyle = '#2c3a46';
+    rr(ctx, x - 26, 130, 30, gy - 130, 4);
+    ctx.fill();
+    rr(ctx, x + 86, 130, 30, gy - 130, 4);
+    ctx.fill();
+    ctx.strokeStyle = '#39424c';
+    ctx.lineWidth = 4;
+    rr(ctx, x, 130, 90, gy - 130, 4);
+    ctx.stroke();
+  }
+
+  private drawNextDoor(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    dw: number,
+    gy: number,
+    openP: number,
+  ) {
+    const dh = gy - 140;
+    // тёплый свет следующего вагона за дверью
+    if (openP > 0) {
+      ctx.fillStyle = `rgba(255,214,140,${0.9 * openP})`;
+      const ow = dw * openP;
+      rr(ctx, x + (dw - ow) / 2, 140, ow, dh, 4);
+      ctx.fill();
+      const spill = ctx.createRadialGradient(x + dw / 2, gy, 10, x + dw / 2, gy, dw);
+      spill.addColorStop(0, `rgba(255,200,110,${0.4 * openP})`);
+      spill.addColorStop(1, 'rgba(255,200,110,0)');
+      ctx.fillStyle = spill;
+      ctx.fillRect(x - dw, 140, dw * 3, dh + 40);
+    }
+    // полотно двери поднимается при открытии
+    const lift = dh * openP;
+    ctx.save();
+    rr(ctx, x, 140, dw, dh, 4);
+    ctx.clip();
+    ctx.translate(0, -lift);
+    const dg = ctx.createLinearGradient(x, 0, x + dw, 0);
+    dg.addColorStop(0, '#3a4753');
+    dg.addColorStop(0.5, '#46545f');
+    dg.addColorStop(1, '#333f4a');
+    ctx.fillStyle = dg;
+    ctx.fillRect(x, 140, dw, dh);
+    ctx.fillStyle = '#0e1a26';
+    rr(ctx, x + dw * 0.3, 168, dw * 0.4, 60, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#5a6874';
+    ctx.lineWidth = 3;
+    rr(ctx, x + dw * 0.3, 168, dw * 0.4, 60, 6);
+    ctx.stroke();
+    ctx.fillStyle = '#2c3742';
+    ctx.fillRect(x, 140 + dh * 0.55, dw, 6);
+    ctx.fillStyle = '#8a97a3';
+    rr(ctx, x + dw * 0.5 - 16, 140 + dh * 0.55 + 18, 32, 8, 4);
+    ctx.fill();
+    ctx.restore();
+    // неподвижная рама
+    ctx.strokeStyle = '#4a5866';
+    ctx.lineWidth = 5;
+    rr(ctx, x, 140, dw, dh, 4);
+    ctx.stroke();
+    // табличка с номером вагона
+    const plate = `ВАГОН ${this.transLevel}`;
+    ctx.font = '10px "Press Start 2P"';
+    ctx.textAlign = 'left';
+    const tw = ctx.measureText(plate).width;
+    const px = x + dw / 2 - tw / 2;
+    ctx.fillStyle = '#1c2733';
+    rr(ctx, px - 10, 106, tw + 20, 24, 4);
+    ctx.fill();
+    ctx.strokeStyle = '#ffc24b';
+    ctx.lineWidth = 2;
+    rr(ctx, px - 10, 106, tw + 20, 24, 4);
+    ctx.stroke();
+    ctx.fillStyle = '#ffc24b';
+    ctx.fillText(plate, px, 123);
+    ctx.textAlign = 'center';
   }
 
   private drawCeiling(ctx: CanvasRenderingContext2D, w: number, bob: number) {

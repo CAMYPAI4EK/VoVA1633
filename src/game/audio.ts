@@ -138,4 +138,10 @@ export class SoundKit {
     this.tone(1046, 1046, 0.4, 'square', 0.16, 0.48);
     this.noise(0.5, 0.06, 1200, 0.48);
   }
+  /** Раздвижная дверь тамбура: шорох + щелчок. */
+  doorOpen() {
+    this.noise(0.4, 0.12, 900);
+    this.tone(180, 90, 0.3, 'sawtooth', 0.08);
+    this.tone(420, 420, 0.05, 'square', 0.1, 0.34);
+  }
 }
