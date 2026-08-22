@@ -195,9 +195,9 @@ function loadCustomPhoto(id: number): Promise<HTMLImageElement | null> {
   if (cached) return cached;
   const pad = String(id).padStart(2, '0');
   const promise = (async () => {
-    const base = import.meta.env.BASE_URL ?? '/';
+    // относительный путь: работает и из корня, и из вложенного пути предпросмотра
     for (const ext of PHOTO_EXTS) {
-      const img = await tryLoadImage(`${base}photos/${pad}.${ext}`);
+      const img = await tryLoadImage(`./photos/${pad}.${ext}`);
       if (img) {
         customPhotoCache.set(id, img);
         return img;

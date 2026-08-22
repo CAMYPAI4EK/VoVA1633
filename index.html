@@ -22,36 +22,91 @@
         overflow: hidden;
       }
     </style>
+    <script>
+      // «Сторожевой таймер» запуска + автопочинка путей.
+      // Если предпросмотр открыт по вложенному адресу, абсолютные /assets/…
+      // не находятся — тогда те же файлы подгружаются относительным путём.
+      (function () {
+        window.__platskartError = null;
+        window.__platskartBooted = false;
+
+        function toRelative(url) {
+          try {
+            var p = new URL(url, location.href).pathname;
+            return p.charAt(0) === '/' ? '.' + p : p;
+          } catch (err) {
+            return null;
+          }
+        }
+
+        // capture-фаза ловит ошибки загрузки ресурсов (script/link),
+        // которые не всплывают до window обычным образом
+        window.addEventListener(
+          'error',
+          function (e) {
+            var t = e.target;
+            if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK') && !t.__pkRetried) {
+              var url = t.tagName === 'SCRIPT' ? t.src : t.href;
+              if (url && url.indexOf('/assets/') !== -1) {
+                var rel = toRelative(url);
+                if (rel) {
+                  t.__pkRetried = true;
+                  if (t.tagName === 'SCRIPT') {
+                    var s = document.createElement('script');
+                    s.type = t.type || 'text/javascript';
+                    s.src = rel;
+                    s.__pkRetried = true;
+                    document.head.appendChild(s);
+                    return;
+                  }
+                  var l = document.createElement('link');
+                  l.rel = 'stylesheet';
+                  l.href = rel;
+                  l.__pkRetried = true;
+                  document.head.appendChild(l);
+                  return;
+                }
+              }
+            }
+            if (window.__platskartBooted) return;
+            var msg = (e && e.message) || 'Неизвестная ошибка';
+            if (!window.__platskartError) window.__platskartError = 'Скрипт игры не загрузился: ' + msg;
+          },
+          true
+        );
+
+        window.addEventListener('unhandledrejection', function (e) {
+          if (window.__platskartBooted) return;
+          window.__platskartError =
+            'Ошибка при запуске игры: ' +
+            ((e && e.reason && e.reason.message) || e.reason || 'неизвестно');
+        });
+
+        window.setTimeout(function () {
+          if (window.__platskartBooted) return;
+          var root = document.getElementById('root');
+          if (root && root.childElementCount > 0) return;
+          if (root) {
+            root.style.cssText =
+              'display:flex;align-items:center;justify-content:center;padding:24px;';
+            root.innerHTML =
+              '<div style="max-width:540px;border:2px solid #d0402e;border-radius:10px;background:#120c0a;padding:28px;text-align:center;color:#f2e6c8;font-family:monospace;">' +
+              '<div style="font-size:13px;letter-spacing:2px;color:#ff8a70;">СБОЙ НА ЛИНИИ</div>' +
+              '<p style="font-size:13px;line-height:1.6;margin:12px 0;">' +
+              (window.__platskartError || 'Игра не запустилась за отведённое время.') +
+              '</p>' +
+              '<p style="font-size:11px;color:#c9b990;margin:0 0 16px;word-break:break-all;">' +
+              location.href +
+              '</p>' +
+              '<button onclick="location.reload()" style="font-family:monospace;font-size:12px;letter-spacing:1px;padding:10px 22px;border-radius:8px;border:2px solid #ffc24b;background:#2a2118;color:#ffe3a6;cursor:pointer;">ПЕРЕЗАПУСТИТЬ СОСТАВ</button>' +
+              '</div>';
+          }
+        }, 6000);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      // «Сторожевой таймер» запуска: если игра не отрисовалась за 5 секунд,
-      // показываем реальную причину вместо зелёного фона.
-      window.__platskartError = null;
-      window.addEventListener('error', function (e) {
-        window.__platskartError = e && e.message ? e.message : 'Неизвестная ошибка скрипта';
-      });
-      window.addEventListener('unhandledrejection', function (e) {
-        window.__platskartError =
-          'Promise: ' + (e && e.reason ? String(e.reason) : 'неизвестная ошибка');
-      });
-      window.setTimeout(function () {
-        var root = document.getElementById('root');
-        if (root && root.children.length === 0) {
-          var msg =
-            window.__platskartError ||
-            'Скрипт игры не загрузился: файл /assets/… не найден. Скорее всего, предпросмотр открыт по вложенному пути или показывает устаревшую сборку.';
-          root.innerHTML =
-            '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;">' +
-            '<div style="max-width:540px;background:#12241d;border:2px solid #d0402e;border-radius:10px;padding:26px;text-align:center;color:#e8e0cc;font-family:monospace;">' +
-            '<div style="font-size:15px;letter-spacing:3px;color:#ff8a70;margin-bottom:14px;">СБОЙ НА ЛИНИИ</div>' +
-            '<div style="font-size:13px;line-height:1.55;">' + msg + '</div>' +
-            '<button onclick="location.reload()" style="margin-top:18px;padding:11px 22px;background:#d0402e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;">ПЕРЕЗАПУСТИТЬ СОСТАВ</button>' +
-            '</div></div>';
-        }
-      }, 5000);
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
