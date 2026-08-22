@@ -94,6 +94,12 @@ export class SoundKit {
     this.tone(880, 880, 0.07, 'sine', 0.16);
     this.tone(1318, 1318, 0.1, 'sine', 0.16, 0.07);
   }
+  /** Затвор фотоаппарата: щелчок + короткий писк. */
+  shutter() {
+    this.noise(0.07, 0.4, 2600);
+    this.tone(1560, 1500, 0.05, 'square', 0.14, 0.06);
+    this.tone(980, 940, 0.07, 'square', 0.1, 0.12);
+  }
   milestone() {
     this.tone(660, 660, 0.08, 'square', 0.12);
     this.tone(990, 990, 0.12, 'square', 0.12, 0.09);

@@ -3,6 +3,8 @@ import { LEVELS, PlatskartGame } from './game/engine';
 import type { GameState, HudData } from './game/engine';
 import { pickQuestion } from './game/quiz';
 import type { QuizQuestion } from './game/quiz';
+import { PHOTOS, drawSprite } from './game/sprites';
+import type { PhotoArt } from './game/sprites';
 
 /* ---------- мелкие детали ---------- */
 
@@ -46,6 +48,22 @@ function PauseIcon() {
     <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden>
       <rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" />
       <rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function PhotoIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <rect x="3" y="5" width="18" height="15" rx="2" stroke="currentColor" strokeWidth="2" />
+      <circle cx="9" cy="11" r="2" fill="currentColor" />
+      <path
+        d="M4.5 18l4.5-4.5 3 3 3.5-3.5 4 4"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -136,6 +154,151 @@ function QuizOverlay({
   );
 }
 
+/* ---------- фотоальбом ---------- */
+
+function PhotoCanvas({ art }: { art: PhotoArt }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    drawSprite(ctx, art, 0, 0, 7);
+  }, [art]);
+  return (
+    <canvas
+      ref={ref}
+      width={art.w * 7}
+      height={art.rows.length * 7}
+      className="block w-full rounded-[2px]"
+      style={{ imageRendering: 'pixelated' }}
+    />
+  );
+}
+
+function AlbumOverlay({
+  album,
+  onClose,
+  onReset,
+}: {
+  album: number[];
+  onClose: () => void;
+  onReset: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  useEffect(() => {
+    if (!confirming) return;
+    const t = window.setTimeout(() => setConfirming(false), 2600);
+    return () => window.clearTimeout(t);
+  }, [confirming]);
+
+  const collected = new Set(album);
+  const full = album.length >= PHOTOS.length;
+
+  return (
+    <div className="album-scroll board-in absolute inset-0 z-50 overflow-y-auto bg-[rgba(6,12,9,0.9)]">
+      <div className="mx-auto w-[min(880px,94vw)] px-1 py-6 sm:py-8">
+        <div className="board rounded-lg px-6 py-5 sm:px-8">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <div className="font-display text-[8px] tracking-[0.22em] text-lamp-500/80">
+                СКОРЫЙ №037 · НОВОСИБИРСК → МОСКВА
+              </div>
+              <h2 className="amber-glow mt-2 font-display text-2xl sm:text-3xl">ФОТОАЛЬБОМ</h2>
+              <p className="mt-2 max-w-md text-xs text-rail-200/70">
+                Снимки находятся по пути — в воздухе и под ногами. Очков за них не дают, зато
+                дорога останется на память. Альбом сохраняется между поездками.
+              </p>
+            </div>
+            <div className="text-right">
+              <div className="font-display text-[7px] text-rail-200/60">СОБРАНО КАДРОВ</div>
+              <div className="amber-glow font-display text-2xl">
+                {album.length}
+                <span className="text-sm text-rail-200/50">/16</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex gap-1">
+            {PHOTOS.map((p) => (
+              <div
+                key={p.id}
+                className={`h-2.5 flex-1 rounded-sm transition-colors ${
+                  collected.has(p.id)
+                    ? 'bg-lamp-500 shadow-[0_0_8px_#ffc24b]'
+                    : 'border border-rail-200/15 bg-wagon-950/70'
+                }`}
+                title={`${String(p.id).padStart(2, '0')} · ${p.title}`}
+              />
+            ))}
+          </div>
+
+          {full && (
+            <div className="blink-hard mt-4 text-center font-display text-[10px] tracking-widest text-lamp-400">
+              ★ АЛЬБОМ СОБРАН! ВЕСЬ ПУТЬ — В КАРМАШКЕ КУРТКИ ★
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+          {PHOTOS.map((p, i) =>
+            collected.has(p.id) ? (
+              <div
+                key={p.id}
+                className={`photo-card rounded-sm bg-[#f2ead9] p-2 pb-3 shadow-[0_6px_18px_rgba(0,0,0,0.45)] ${
+                  i % 2 ? 'rotate-1' : '-rotate-1'
+                }`}
+              >
+                <PhotoCanvas art={p} />
+                <div className="mt-2 text-center font-display text-[8px] leading-snug text-[#3a2f22]">
+                  {String(p.id).padStart(2, '0')} · {p.title.toUpperCase()}
+                </div>
+              </div>
+            ) : (
+              <div
+                key={p.id}
+                className="flex flex-col items-center justify-center rounded-sm border-2 border-dashed border-rail-200/20 bg-wagon-900/50 px-2 py-7 sm:py-9"
+              >
+                <div className="font-display text-2xl text-rail-200/20">?</div>
+                <div className="mt-2 font-display text-[7px] tracking-widest text-rail-200/40">
+                  КАДР {String(p.id).padStart(2, '0')}
+                </div>
+                <div className="mt-1 text-[10px] text-rail-200/35">ещё не снято</div>
+              </div>
+            ),
+          )}
+        </div>
+
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+          <button
+            className="btn-train rounded-md px-6 py-3.5 text-[10px] tracking-widest"
+            onClick={onClose}
+          >
+            ВЕРНУТЬСЯ В ВАГОН
+          </button>
+          <button
+            className={`btn-ghost rounded-md px-4 py-3 text-[9px] tracking-widest ${
+              confirming ? '!border-[#ff8a70]/70 !text-[#ff8a70]' : ''
+            }`}
+            onClick={() => {
+              if (confirming) {
+                onReset();
+                setConfirming(false);
+              } else {
+                setConfirming(true);
+              }
+            }}
+            disabled={album.length === 0}
+          >
+            {confirming ? 'ТОЧНО СБРОСИТЬ?' : 'СБРОСИТЬ АЛЬБОМ'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- приложение ---------- */
 
 export default function App() {
@@ -154,6 +317,8 @@ export default function App() {
   });
   const [muted, setMuted] = useState(false);
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
+  const [album, setAlbum] = useState<number[]>([]);
+  const [view, setView] = useState<'game' | 'album'>('game');
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -163,6 +328,12 @@ export default function App() {
       onHud: setHud,
       onToast: (t) => setToast({ id: Date.now(), text: t }),
       onMute: setMuted,
+      onAlbum: (ids) => setAlbum([...ids].sort((a, b) => a - b)),
+      onPhoto: (p) =>
+        setToast({
+          id: Date.now(),
+          text: `ФОТО: «${p.title}» · ${p.count}/${p.total}`,
+        }),
     });
     engRef.current = eng;
     return () => {
@@ -189,22 +360,41 @@ export default function App() {
       <div className="vignette pointer-events-none absolute inset-0 z-20" />
 
       {/* -------- HUD -------- */}
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-2 p-3 sm:p-4">
-        <div className="panel flex items-center gap-3 rounded-md px-4 py-2.5">
-          <TrainIcon className="h-6 w-6 text-lamp-400" />
-          <div className="leading-tight">
-            <div className="font-display text-[10px] tracking-wider text-lamp-400">ВАГОН 09</div>
-            <div className="font-display text-[7px] text-rail-200/60">ПЛАЦКАРТ-ЭКСПРЕСС</div>
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-[60] flex items-start justify-between gap-2 p-3 sm:p-4">
+        <div className="flex items-start gap-2">
+          <div className="panel pointer-events-auto flex items-center gap-1 rounded-md p-1">
+            <button
+              className={`tab-btn ${view === 'game' ? 'tab-active' : ''}`}
+              onClick={() => setView('game')}
+              title="Вернуться в вагон"
+            >
+              <TrainIcon className="h-4 w-4" />
+              ВАГОН
+            </button>
+            <button
+              className={`tab-btn ${view === 'album' ? 'tab-active' : ''}`}
+              onClick={() => {
+                if (gs === 'playing') eng()?.togglePause();
+                setView('album');
+              }}
+              title="Фотоальбом маршрута"
+            >
+              <PhotoIcon className="h-4 w-4" />
+              АЛЬБОМ
+              <span className="rounded-sm border border-lamp-500/40 bg-wagon-950/70 px-1.5 py-0.5 font-display text-[7px] leading-none text-lamp-400">
+                {album.length}/16
+              </span>
+            </button>
           </div>
           {inRun && (
-            <div className="ml-2 hidden min-w-[130px] border-l border-rail-200/15 pl-3 leading-tight sm:block">
+            <div className="panel hidden rounded-md px-4 py-2.5 leading-tight sm:block">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="font-display text-[9px] text-lamp-400">УР. {hud.level}/4</span>
                 <span className="font-display text-[6px] tracking-wider text-rail-200/55">
                   {hud.levelName}
                 </span>
               </div>
-              <div className="mt-1.5 h-2 overflow-hidden rounded-sm border border-rail-200/20 bg-wagon-950/80">
+              <div className="mt-1.5 h-2 w-[130px] overflow-hidden rounded-sm border border-rail-200/20 bg-wagon-950/80">
                 <div
                   className="h-full bg-lamp-500 shadow-[0_0_8px_#ffc24b] transition-[width] duration-300"
                   style={{ width: `${Math.round(hud.progress * 100)}%` }}
@@ -424,7 +614,7 @@ export default function App() {
               </div>
               <div className="flex items-center gap-2">
                 <Key>M</Key>
-                <span>— звук, чай в подстаканнике = +50</span>
+                <span>— звук; фото по пути — в альбом</span>
               </div>
             </div>
             <div className="mt-2.5 rounded border border-[#8fd6b8]/30 bg-[#0f2b22]/50 px-4 py-2 text-xs text-[#a9e3cb]">
@@ -473,6 +663,15 @@ export default function App() {
           onCorrect={() => eng()?.revive()}
           onWrong={() => eng()?.failQuiz()}
           onSkip={() => eng()?.skipRevive()}
+        />
+      )}
+
+      {/* -------- фотоальбом -------- */}
+      {view === 'album' && (
+        <AlbumOverlay
+          album={album}
+          onClose={() => setView('game')}
+          onReset={() => eng()?.resetAlbum()}
         />
       )}
 

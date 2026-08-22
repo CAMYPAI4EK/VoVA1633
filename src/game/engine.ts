@@ -5,6 +5,8 @@ import {
   FEET,
   FLOORBAG,
   JUMP,
+  PHOTO_ITEM,
+  PHOTOS,
   RACKBAG,
   RUN_A,
   RUN_B,
@@ -54,6 +56,8 @@ export interface EngineHooks {
   onHud: (h: HudData) => void;
   onToast: (t: string) => void;
   onMute: (m: boolean) => void;
+  onPhoto: (p: { id: number; title: string; count: number; total: number }) => void;
+  onAlbum: (ids: number[]) => void;
 }
 
 const H = 540;
@@ -115,7 +119,7 @@ interface Obstacle {
   seed: number;
 }
 
-interface Tea {
+interface PhotoDrop {
   x: number;
   y: number;
   air: boolean;
@@ -209,13 +213,14 @@ export class PlatskartGame {
   private stepAlt = false;
 
   private obstacles: Obstacle[] = [];
-  private teas: Tea[] = [];
+  private photos: PhotoDrop[] = [];
   private particles: Particle[] = [];
   private popups: Popup[] = [];
+  private album = new Set<number>();
 
   private distSince = 0;
   private nextGap = 640;
-  private nextTea = 1400;
+  private nextPhoto = 4200;
   private lastLane: 'ground' | 'over' = 'ground';
 
   private shake = 0;
@@ -238,6 +243,15 @@ export class PlatskartGame {
     this.best = Number(localStorage.getItem('platskart-best-v1') || 0) || 0;
     this.sound.muted = localStorage.getItem('platskart-mute-v1') === '1';
     hooks.onMute(this.sound.muted);
+    try {
+      const saved = JSON.parse(localStorage.getItem('platskart-album-v1') || '[]');
+      if (Array.isArray(saved)) {
+        for (const id of saved) this.album.add(Number(id));
+      }
+    } catch {
+      /* повреждённое сохранение — начинаем с чистого альбома */
+    }
+    hooks.onAlbum([...this.album]);
     this.pushHud(true);
 
     this.onResize = () => this.resize();
@@ -305,12 +319,12 @@ export class PlatskartGame {
     this.coyote = 0;
     this.jumpCut = false;
     this.obstacles = [];
-    this.teas = [];
+    this.photos = [];
     this.particles = [];
     this.popups = [];
     this.distSince = 0;
     this.nextGap = 640;
-    this.nextTea = 1200 + rnd() * 600;
+    this.nextPhoto = 4200 + rnd() * 2000;
     this.lastLane = 'ground';
     this.shake = 0;
     this.deathT = 0;
@@ -331,6 +345,17 @@ export class PlatskartGame {
   toMenu() {
     this.reset();
     this.setState('menu');
+  }
+
+  /** Полная очистка альбома (кнопка в интерфейсе). */
+  resetAlbum() {
+    this.album.clear();
+    try {
+      localStorage.removeItem('platskart-album-v1');
+    } catch {
+      /* ignore */
+    }
+    this.hooks.onAlbum([]);
   }
 
   // Верный ответ в квизе: пассажир встаёт на том же месте, путь впереди расчищен
@@ -514,9 +539,14 @@ export class PlatskartGame {
       340 + this.speed * 0.42 + rnd() * 330 + (def.lane === 'over' ? 140 : 0);
   }
 
-  private spawnTea() {
+  private spawnPhoto() {
+    // все 16 кадров собраны — новые не спавним
+    if (this.album.size >= PHOTOS.length) {
+      this.nextPhoto = 2000;
+      return;
+    }
     const air = rnd() < 0.68;
-    let y = air ? GROUND_Y - 150 : GROUND_Y - 42;
+    let y = air ? GROUND_Y - 150 : GROUND_Y - 46;
     const x = this.w + 120 + rnd() * 160;
     if (!air) {
       for (const o of this.obstacles) {
@@ -526,7 +556,7 @@ export class PlatskartGame {
         }
       }
     }
-    this.teas.push({ x, y, air, seed: rnd() * 10 });
+    this.photos.push({ x, y, air, seed: rnd() * 10 });
   }
 
   private debris(kind: Kind, x: number, y: number) {
@@ -634,7 +664,7 @@ export class PlatskartGame {
       const ws = this.speed * Math.max(0, 1 - this.deathT / 0.8);
       this.worldX += ws * dt;
       for (const o of this.obstacles) o.x -= ws * dt;
-      for (const tea of this.teas) tea.x -= ws * dt;
+      for (const pic of this.photos) pic.x -= ws * dt;
       this.vy += GRAV * 0.7 * dt;
       this.py += this.vy * dt;
       if (this.py > GROUND_Y) this.py = GROUND_Y;
@@ -706,10 +736,11 @@ export class PlatskartGame {
       this.distSince = 0;
       this.spawnObstacle();
     }
-    this.nextTea -= this.speed * dt;
-    if (this.nextTea <= 0) {
-      this.spawnTea();
-      this.nextTea = 1100 + rnd() * 1500;
+    // фотографии — редкая находка (примерно в 4 раза реже чая)
+    this.nextPhoto -= this.speed * dt;
+    if (this.nextPhoto <= 0) {
+      this.spawnPhoto();
+      this.nextPhoto = 4400 + rnd() * 6000;
     }
 
     // движение препятствий + столкновения
@@ -737,36 +768,52 @@ export class PlatskartGame {
       }
     }
 
-    // чай
-    for (let i = this.teas.length - 1; i >= 0; i--) {
-      const tea = this.teas[i];
-      tea.x -= this.speed * dt;
-      if (tea.x < -80) {
-        this.teas.splice(i, 1);
+    // фотографии — очков не дают, кладутся в альбом
+    for (let i = this.photos.length - 1; i >= 0; i--) {
+      const pic = this.photos[i];
+      pic.x -= this.speed * dt;
+      if (pic.x < -80) {
+        this.photos.splice(i, 1);
         continue;
       }
-      const ty = tea.y + (tea.air ? Math.sin(this.t * 3 + tea.seed) * 6 : 0);
+      const ty = pic.y + (pic.air ? Math.sin(this.t * 3 + pic.seed) * 6 : 0);
       if (
-        px0 < tea.x + 34 &&
-        px0 + pw > tea.x &&
-        py0 < ty + 42 &&
+        px0 < pic.x + 40 &&
+        px0 + pw > pic.x &&
+        py0 < ty + 46 &&
         py0 + ph > ty
       ) {
-        this.teas.splice(i, 1);
-        this.score += 50;
-        this.sound.collect();
-        this.popup('+50 ЧАЙ', tea.x + 10, ty - 16);
-        for (let k = 0; k < 8; k++) {
+        this.photos.splice(i, 1);
+        const uncollected = PHOTOS.filter((p) => !this.album.has(p.id));
+        if (uncollected.length > 0) {
+          const pick = uncollected[Math.floor(rnd() * uncollected.length)];
+          this.album.add(pick.id);
+          try {
+            localStorage.setItem('platskart-album-v1', JSON.stringify([...this.album]));
+          } catch {
+            /* ignore */
+          }
+          this.hooks.onAlbum([...this.album]);
+          this.hooks.onPhoto({
+            id: pick.id,
+            title: pick.title,
+            count: this.album.size,
+            total: PHOTOS.length,
+          });
+          this.popup(`ФОТО: ${pick.title.toUpperCase()}`, pic.x + 10, ty - 14, '#ffe9b0');
+        }
+        this.sound.shutter();
+        for (let k = 0; k < 10; k++) {
           this.particles.push({
-            x: tea.x + 16,
-            y: ty + 12,
-            vx: -80 + rnd() * 200,
-            vy: -180 + rnd() * 120,
+            x: pic.x + 18,
+            y: ty + 16,
+            vx: -90 + rnd() * 220,
+            vy: -200 + rnd() * 140,
             g: 500,
-            life: 0.5,
-            max: 0.5,
+            life: 0.55,
+            max: 0.55,
             size: 3,
-            color: '#ffd98a',
+            color: k % 2 ? '#fff4d8' : '#ffd98a',
           });
         }
       }
@@ -824,7 +871,7 @@ export class PlatskartGame {
 
     const wob = bob * 0.32;
     for (const o of this.obstacles) this.drawObstacle(ctx, o, wob);
-    for (const tea of this.teas) this.drawTea(ctx, tea);
+    for (const pic of this.photos) this.drawPhoto(ctx, pic);
     this.drawPlayer(ctx, wob);
 
     // частицы
@@ -857,10 +904,11 @@ export class PlatskartGame {
       const a = clamp(p.t / p.max, 0, 1);
       ctx.globalAlpha = a;
       ctx.lineWidth = 3;
+      const tx = clamp(p.x, 130, Math.max(140, w - 130));
       ctx.strokeStyle = 'rgba(10,16,12,0.9)';
-      ctx.strokeText(p.text, p.x, p.y);
+      ctx.strokeText(p.text, tx, p.y);
       ctx.fillStyle = p.color;
-      ctx.fillText(p.text, p.x, p.y);
+      ctx.fillText(p.text, tx, p.y);
     }
     ctx.globalAlpha = 1;
   }
@@ -1221,42 +1269,22 @@ export class PlatskartGame {
     ctx.restore();
   }
 
-  private drawTea(ctx: CanvasRenderingContext2D, tea: Tea) {
-    const y = tea.y + (tea.air ? Math.sin(this.t * 3 + tea.seed) * 6 : 0);
-    const x = tea.x;
-    const glow = ctx.createRadialGradient(x + 17, y + 20, 2, x + 17, y + 20, 34);
-    glow.addColorStop(0, 'rgba(255,194,75,0.22)');
-    glow.addColorStop(1, 'rgba(255,194,75,0)');
+  private drawPhoto(ctx: CanvasRenderingContext2D, pic: PhotoDrop) {
+    const y = pic.y + (pic.air ? Math.sin(this.t * 3 + pic.seed) * 6 : 0);
+    const x = pic.x;
+    const cx = x + 18;
+    const cy = y + 18;
+    const glow = ctx.createRadialGradient(cx, cy, 2, cx, cy, 42);
+    glow.addColorStop(0, 'rgba(255,240,200,0.3)');
+    glow.addColorStop(1, 'rgba(255,240,200,0)');
     ctx.fillStyle = glow;
-    ctx.fillRect(x - 20, y - 18, 74, 78);
-    // подстаканник
-    ctx.fillStyle = '#c9a24a';
-    rr(ctx, x + 4, y + 10, 26, 30, 4);
-    ctx.fill();
-    ctx.fillStyle = '#8a6a2a';
-    ctx.fillRect(x + 4, y + 18, 26, 4);
-    ctx.fillRect(x + 4, y + 30, 26, 3);
-    // ручка
-    ctx.strokeStyle = '#c9a24a';
-    ctx.lineWidth = 3.5;
-    ctx.beginPath();
-    ctx.arc(x + 32, y + 22, 6, -Math.PI / 2, Math.PI / 2);
-    ctx.stroke();
-    // стакан и чай
-    ctx.fillStyle = '#f5e6c8';
-    rr(ctx, x + 6, y, 22, 14, 3);
-    ctx.fill();
-    ctx.fillStyle = '#b5651d';
-    ctx.fillRect(x + 8, y + 3, 18, 9);
-    // пар
-    ctx.strokeStyle = `rgba(245,230,200,${0.35 + 0.25 * Math.sin(this.t * 4 + tea.seed)})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(x + 12, y - 3);
-    ctx.quadraticCurveTo(x + 9, y - 10, x + 13, y - 16);
-    ctx.moveTo(x + 21, y - 3);
-    ctx.quadraticCurveTo(x + 24, y - 11, x + 20, y - 18);
-    ctx.stroke();
+    ctx.fillRect(x - 26, y - 24, 88, 88);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.sin(this.t * 2.2 + pic.seed) * 0.12);
+    ctx.translate(-cx, -cy);
+    drawSprite(ctx, PHOTO_ITEM, x, y - 4, 3);
+    ctx.restore();
   }
 
   private drawPlayer(ctx: CanvasRenderingContext2D, wob: number) {

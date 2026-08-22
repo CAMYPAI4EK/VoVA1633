@@ -264,3 +264,66 @@ body {
 @media (pointer: fine) {
   .touch-only { display: none; }
 }
+
+/* ---------- вкладки ВАГОН / АЛЬБОМ ---------- */
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.3rem;
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: var(--font-display);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: var(--color-rail-200);
+  opacity: 0.6;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+.tab-btn:hover {
+  opacity: 1;
+  background: rgba(255, 194, 75, 0.08);
+}
+.tab-btn:active {
+  transform: translateY(1px);
+}
+.tab-active,
+.tab-active:hover {
+  opacity: 1;
+  color: var(--color-lamp-400);
+  border-color: rgba(255, 194, 75, 0.45);
+  background: rgba(255, 194, 75, 0.1);
+  box-shadow: inset 0 0 12px rgba(255, 194, 75, 0.06);
+}
+
+/* ---------- фотоальбом ---------- */
+.album-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 194, 75, 0.35) rgba(10, 20, 16, 0.6);
+}
+.album-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.album-scroll::-webkit-scrollbar-track {
+  background: rgba(10, 20, 16, 0.6);
+}
+.album-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 194, 75, 0.3);
+  border-radius: 4px;
+}
+.photo-card {
+  transition:
+    transform 0.18s ease,
+    rotate 0.18s ease,
+    box-shadow 0.18s ease;
+}
+.photo-card:hover {
+  transform: translateY(-4px);
+  rotate: 0deg;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.55);
+}
