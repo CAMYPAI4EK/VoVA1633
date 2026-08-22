@@ -68,6 +68,16 @@ function PhotoIcon({ className = 'w-4 h-4' }: { className?: string }) {
   );
 }
 
+function RingsIcon({ className = 'w-6 h-6' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <circle cx="9" cy="14" r="6" stroke="#f0c040" strokeWidth="2.5" />
+      <circle cx="15" cy="14" r="6" stroke="#f0c040" strokeWidth="2.5" />
+      <path d="M15 4l2 2.5L15 9l-2-2.5L15 4z" fill="#cfe9ff" stroke="#9fc6e8" strokeWidth="1" />
+    </svg>
+  );
+}
+
 const fmt = (n: number) => String(Math.max(0, Math.floor(n))).padStart(5, '0');
 
 /* ---------- квиз возрождения ---------- */
@@ -316,6 +326,7 @@ export default function App() {
     revive: true,
   });
   const [muted, setMuted] = useState(false);
+  const [god, setGod] = useState(false);
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
   const [album, setAlbum] = useState<number[]>([]);
   const [view, setView] = useState<'game' | 'album'>('game');
@@ -405,12 +416,23 @@ export default function App() {
         </div>
 
         <div className="flex items-start gap-2">
-          <div className="panel hidden rounded-md px-4 py-2.5 text-right sm:block">
-            <div className="font-display text-[7px] text-rail-200/60">СКОРОСТЬ</div>
-            <div className="font-display text-[11px] text-lamp-300">
-              {hud.kmh} <span className="text-[7px] text-rail-200/50">КМ/Ч</span>
+          <button
+            type="button"
+            onClick={() => setGod(eng()?.toggleGod() ?? false)}
+            title="Скорость"
+            aria-label="Скорость"
+            className={`panel pointer-events-auto hidden cursor-pointer rounded-md px-4 py-2.5 text-right transition-all duration-200 sm:block ${
+              god ? 'god-speed' : ''
+            }`}
+          >
+            <div className={`font-display text-[7px] ${god ? 'text-[#ffb3a3]' : 'text-rail-200/60'}`}>
+              СКОРОСТЬ
             </div>
-          </div>
+            <div className={`font-display text-[11px] ${god ? 'text-[#ff6a4d]' : 'text-lamp-300'}`}>
+              {hud.kmh}{' '}
+              <span className={`text-[7px] ${god ? 'text-[#ff9a85]' : 'text-rail-200/50'}`}>КМ/Ч</span>
+            </div>
+          </button>
           <div className="panel rounded-md px-4 py-2.5 text-right">
             <div className="font-display text-[7px] text-rail-200/60">РЕКОРД</div>
             <div className="font-display text-[11px] text-rail-200/80">{fmt(hud.best)}</div>
@@ -722,6 +744,58 @@ export default function App() {
               <span className="ml-auto hidden font-display text-[8px] text-rail-200/50 sm:block">
                 ПРОБЕЛ — РЕВАНШ
               </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {gs === 'wedding' && (
+        <div className="pointer-events-none absolute inset-0 z-40 flex items-end justify-center p-4 pb-6 sm:pb-10">
+          <div className="board board-in pointer-events-auto w-[min(560px,94vw)] rounded-lg px-6 py-5 text-center sm:px-8">
+            <div className="flex items-center justify-center gap-3">
+              <RingsIcon className="h-7 w-7" />
+              <div className="font-display text-[9px] tracking-[0.35em] text-[#ff8fb0]">
+                МОСКВА · КОНЕЧНАЯ
+              </div>
+              <RingsIcon className="h-7 w-7" />
+            </div>
+            <h2
+              className="mt-2 font-display text-4xl text-[#ffd9e4]"
+              style={{ textShadow: '0 0 20px rgba(232,106,138,0.85)' }}
+            >
+              ГОРЬКО!
+            </h2>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-rail-200/85">
+              Пассажир добежал до конца маршрута — и до сердца проводницы{' '}
+              <span className="font-medium text-[#ffb3c6]">Тани</span>. Узы брака скреплены
+              обручальными кольцами, голуби разлетелись по вагону.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded border border-[#e86a8a]/40 bg-wagon-900/70 px-4 py-3">
+                <div className="font-display text-[7px] text-rail-200/60">ПУТЬ ПРОЙДЕН</div>
+                <div className="mt-1 font-display text-xl text-[#ffd9e4]">{fmt(hud.score)}</div>
+              </div>
+              <div className="rounded border border-[#e86a8a]/40 bg-wagon-900/70 px-4 py-3">
+                <div className="font-display text-[7px] text-rail-200/60">ФОТО В АЛЬБОМЕ</div>
+                <div className="mt-1 font-display text-xl text-[#ffd9e4]">
+                  {album.length}
+                  <span className="text-sm text-rail-200/50">/16</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+              <button
+                className="btn-train rounded-md px-6 py-3.5 text-[10px] tracking-widest"
+                onClick={() => eng()?.restart()}
+              >
+                ЕЩЁ ПОЕЗДКА
+              </button>
+              <button
+                className="btn-ghost rounded-md px-5 py-3.5 text-[10px] tracking-widest"
+                onClick={() => eng()?.toMenu()}
+              >
+                В ДЕПО
+              </button>
             </div>
           </div>
         </div>

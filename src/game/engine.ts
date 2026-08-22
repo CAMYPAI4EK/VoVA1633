@@ -1,9 +1,13 @@
 import {
   BOTTLE,
   DEAD,
+  DOVE_A,
+  DOVE_B,
   DUCK,
   FEET,
   FLOORBAG,
+  HEART_P,
+  HEART_R,
   JUMP,
   PHOTO_ITEM,
   PHOTOS,
@@ -12,11 +16,20 @@ import {
   RUN_B,
   SLIPPER,
   SUITCASE,
+  TANYA,
   drawSprite,
 } from './sprites';
 import { SoundKit } from './audio';
 
-export type GameState = 'menu' | 'playing' | 'paused' | 'dying' | 'quiz' | 'gameover';
+export type GameState =
+  | 'menu'
+  | 'playing'
+  | 'paused'
+  | 'dying'
+  | 'quiz'
+  | 'gameover'
+  | 'finale'
+  | 'wedding';
 
 export interface HudData {
   score: number;
@@ -126,6 +139,26 @@ interface PhotoDrop {
   seed: number;
 }
 
+interface Heart {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  max: number;
+  size: number;
+  pink: boolean;
+  sway: number;
+}
+
+interface Dove {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  t: number;
+}
+
 interface Particle {
   x: number;
   y: number;
@@ -228,6 +261,17 @@ export class PlatskartGame {
   private invincibleT = 0;
   private revivalUsed = false;
   private level = 1;
+  godMode = false;
+  private finaleT = 0;
+  private finaleStartSpeed = 0;
+  private tanyaX = -100;
+  private kissDone = false;
+  private dovesDone = false;
+  private ringsDone = false;
+  private heartTimer = 0;
+  private flashT = 0;
+  private hearts: Heart[] = [];
+  private doves: Dove[] = [];
 
   private onKeyDown: (e: KeyboardEvent) => void;
   private onKeyUp: (e: KeyboardEvent) => void;
@@ -310,6 +354,15 @@ export class PlatskartGame {
     this.invincibleT = 0;
     this.revivalUsed = false;
     this.level = 1;
+    this.finaleT = 0;
+    this.tanyaX = -100;
+    this.kissDone = false;
+    this.dovesDone = false;
+    this.ringsDone = false;
+    this.heartTimer = 0;
+    this.flashT = 0;
+    this.hearts = [];
+    this.doves = [];
     this.py = GROUND_Y;
     this.vy = 0;
     this.grounded = true;
@@ -356,6 +409,12 @@ export class PlatskartGame {
       /* ignore */
     }
     this.hooks.onAlbum([]);
+  }
+
+  /** Скрытый режим бессмертия: столкновения не убивают. */
+  toggleGod(): boolean {
+    this.godMode = !this.godMode;
+    return this.godMode;
   }
 
   // Верный ответ в квизе: пассажир встаёт на том же месте, путь впереди расчищен
@@ -626,6 +685,225 @@ export class PlatskartGame {
     this.setState('dying');
   }
 
+  // ------------------------------------------------- финал: свадьба
+  private startFinale() {
+    this.setState('finale');
+    this.finaleT = 0;
+    this.finaleStartSpeed = this.speed;
+    this.photos = [];
+    this.py = GROUND_Y;
+    this.vy = 0;
+    this.grounded = true;
+    this.ducking = false;
+    this.sound.brake();
+    this.hooks.onToast('МОСКВА. КОНЕЧНАЯ');
+    const s = Math.floor(this.score);
+    if (s > this.best) {
+      this.best = s;
+      this.newBest = true;
+      try {
+        localStorage.setItem('platskart-best-v1', String(s));
+      } catch {
+        /* ignore */
+      }
+    }
+    this.pushHud(true);
+  }
+
+  private updateFinale(dt: number) {
+    const T = (this.finaleT += dt);
+
+    // фаза 1: торможение (0 → 2.2с)
+    if (T < 2.2) {
+      this.speed = Math.max(0, this.finaleStartSpeed * (1 - T / 2.2));
+      this.worldX += this.speed * dt;
+      this.runT += dt * (this.speed / 52);
+      for (const o of this.obstacles) o.x -= this.speed * dt;
+    } else {
+      this.speed = 0;
+      if (this.obstacles.length) this.obstacles = [];
+    }
+
+    // игрок замирает
+    if (T >= 2.2) {
+      this.py = GROUND_Y;
+      this.vy = 0;
+      this.grounded = true;
+      this.ducking = false;
+    }
+
+    // Таня выходит навстречу (2.2 → 4.7с)
+    if (T >= 2.2) {
+      const target = this.playerX + 62;
+      if (T < 4.7) {
+        const p = (T - 2.2) / 2.5;
+        this.tanyaX = this.w + 60 - p * (this.w + 60 - target);
+      } else {
+        this.tanyaX = target;
+      }
+    }
+
+    // поцелуй (5.6с)
+    if (!this.kissDone && T >= 5.6) {
+      this.kissDone = true;
+      this.flashT = 0.3;
+      this.sound.kiss();
+      for (let i = 0; i < 26; i++) this.spawnHeart(true);
+    }
+
+    // голуби (5.6с)
+    if (!this.dovesDone && T >= 5.6) {
+      this.dovesDone = true;
+      this.sound.wings();
+      this.spawnDoves();
+    }
+
+    // обручальные кольца (6.6с)
+    if (!this.ringsDone && T >= 6.6) {
+      this.ringsDone = true;
+      this.sound.fanfare();
+      for (let i = 0; i < 12; i++) this.spawnHeart(false);
+    }
+
+    // сердца фоном
+    if (T > 5.6) {
+      this.heartTimer -= dt;
+      if (this.heartTimer <= 0) {
+        this.heartTimer = 0.4;
+        this.spawnHeart(false);
+      }
+    }
+
+    this.updateFx(dt);
+    if (this.flashT > 0) this.flashT -= dt;
+
+    if (T >= 10.5) this.setState('wedding');
+  }
+
+  private spawnHeart(burst: boolean) {
+    const cx = (this.playerX + this.tanyaX + 32) / 2;
+    const cy = GROUND_Y - (burst ? 60 + rnd() * 30 : 75);
+    this.hearts.push({
+      x: cx + (rnd() - 0.5) * (burst ? 100 : 44),
+      y: cy + (rnd() - 0.5) * 20,
+      vx: (rnd() - 0.5) * 50,
+      vy: -(40 + rnd() * 60),
+      life: 1.6,
+      max: 1.6,
+      size: 2.5 + rnd() * 2,
+      pink: rnd() < 0.5,
+      sway: rnd() * 10,
+    });
+  }
+
+  private spawnDoves() {
+    const cx = (this.playerX + this.tanyaX + 32) / 2;
+    for (let i = 0; i < 8; i++) {
+      const dir = i % 2 === 0 ? -1 : 1;
+      this.doves.push({
+        x: cx + (rnd() - 0.5) * 60,
+        y: GROUND_Y - 60 - rnd() * 40,
+        vx: dir * (60 + rnd() * 90),
+        vy: -(70 + rnd() * 60),
+        t: rnd() * 10,
+      });
+    }
+  }
+
+  private updateFx(dt: number) {
+    for (let i = this.hearts.length - 1; i >= 0; i--) {
+      const h = this.hearts[i];
+      h.life -= dt;
+      if (h.life <= 0) {
+        this.hearts.splice(i, 1);
+        continue;
+      }
+      h.x += h.vx * dt + Math.sin(this.t * 4 + h.sway) * 0.6;
+      h.y += h.vy * dt;
+    }
+    for (let i = this.doves.length - 1; i >= 0; i--) {
+      const d = this.doves[i];
+      d.t += dt;
+      d.x += d.vx * dt;
+      d.y += d.vy * dt;
+      d.vy *= 0.995;
+      if (d.y < -60 || d.x < -60 || d.x > this.w + 60) this.doves.splice(i, 1);
+    }
+  }
+
+  private drawFinale(ctx: CanvasRenderingContext2D, wob: number) {
+    const T = this.finaleT;
+    const groundY = GROUND_Y + wob;
+
+    // Таня (появляется с 2.2с)
+    if (T >= 2.2) {
+      const walking = T < 4.7;
+      const step = walking ? Math.sin(T * 10) * 2 : 0;
+      const lean = this.kissDone ? -0.05 : 0;
+      const tx = this.tanyaX;
+      const feetY = groundY + step;
+      ctx.save();
+      ctx.translate(tx + 32, feetY);
+      ctx.rotate(lean);
+      ctx.translate(-(tx + 32), -feetY);
+      drawSprite(ctx, TANYA, tx, feetY - TANYA.rows.length * 4, 4);
+      ctx.restore();
+    }
+
+    // обручальные кольца над парой
+    if (this.ringsDone) {
+      const cx = (this.playerX + this.tanyaX + 32) / 2;
+      const cy = groundY - 135;
+      const pulse = 1 + Math.sin(this.t * 3) * 0.05;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(pulse, pulse);
+      ctx.lineWidth = 5;
+      const grad = ctx.createLinearGradient(-20, -20, 20, 20);
+      grad.addColorStop(0, '#ffe9a8');
+      grad.addColorStop(0.5, '#f0c040');
+      grad.addColorStop(1, '#c8901a');
+      ctx.strokeStyle = grad;
+      ctx.beginPath();
+      ctx.arc(-11, 0, 16, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(11, 0, 16, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#cfe9ff';
+      ctx.beginPath();
+      ctx.moveTo(11, -24);
+      ctx.lineTo(17, -17);
+      ctx.lineTo(11, -10);
+      ctx.lineTo(5, -17);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      const sa = 0.5 + 0.5 * Math.sin(this.t * 6);
+      ctx.fillStyle = `rgba(255,240,180,${sa})`;
+      ctx.fillRect(cx - 2, cy - 36, 4, 4);
+    }
+
+    // голуби
+    for (const d of this.doves) {
+      const frame = Math.floor(d.t * 8) % 2 === 0 ? DOVE_A : DOVE_B;
+      drawSprite(ctx, frame, d.x, d.y, 3);
+    }
+
+    // сердца
+    for (const h of this.hearts) {
+      ctx.globalAlpha = clamp(h.life / h.max, 0, 1);
+      drawSprite(ctx, h.pink ? HEART_P : HEART_R, h.x, h.y, h.size);
+    }
+    ctx.globalAlpha = 1;
+
+    // вспышка поцелуя
+    if (this.flashT > 0) {
+      ctx.fillStyle = `rgba(255,220,235,${this.flashT * 1.5})`;
+      ctx.fillRect(-20, -20, this.w + 40, H + 40);
+    }
+  }
+
   // ------------------------------------------------- обновление
   private update(dt: number) {
     this.stateT += dt;
@@ -675,7 +953,24 @@ export class PlatskartGame {
       return;
     }
 
+    if (this.state === 'finale') {
+      this.updateFinale(dt);
+      return;
+    }
+
     if (this.state === 'gameover') return;
+
+    if (this.state === 'wedding') {
+      // сценка живёт и за свадебной карточкой
+      this.updateFx(dt);
+      this.heartTimer -= dt;
+      if (this.heartTimer <= 0) {
+        this.heartTimer = 0.5;
+        this.spawnHeart(false);
+      }
+      if (this.flashT > 0) this.flashT -= dt;
+      return;
+    }
 
     // ---- playing ----
     this.speed = Math.min(MAX_SPEED, this.speed + dt * (this.speed < 700 ? 13.5 : 9));
@@ -691,6 +986,12 @@ export class PlatskartGame {
       this.sound.milestone();
       this.hooks.onToast(`УРОВЕНЬ ${lv}/4 — ${LEVELS[lv - 1].name}`);
       this.popup(`УРОВЕНЬ ${lv}`, this.playerX + 30, this.py - 130, '#ffc24b');
+    }
+
+    // конец маршрута — финал со свадьбой
+    if (this.score >= LEVELS[3].to) {
+      this.startFinale();
+      return;
     }
 
     // шаги / стук колёс
@@ -756,7 +1057,7 @@ export class PlatskartGame {
         this.obstacles.splice(i, 1);
         continue;
       }
-      if (this.invincibleT > 0) continue; // мигает после возрождения
+      if (this.godMode || this.invincibleT > 0) continue; // бессмертие / мигает после возрождения
       const pad = 5;
       const ox0 = o.x + pad;
       const oy0 = o.y + pad;
@@ -873,6 +1174,9 @@ export class PlatskartGame {
     for (const o of this.obstacles) this.drawObstacle(ctx, o, wob);
     for (const pic of this.photos) this.drawPhoto(ctx, pic);
     this.drawPlayer(ctx, wob);
+
+    // свадебная сценка
+    if (this.state === 'finale' || this.state === 'wedding') this.drawFinale(ctx, wob);
 
     // частицы
     for (const p of this.particles) {
