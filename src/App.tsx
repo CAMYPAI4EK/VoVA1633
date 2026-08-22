@@ -135,7 +135,12 @@ function QuizOverlay({
               else cls += ' opt-dim';
             }
             return (
-              <button key={opt} className={cls} onClick={() => answer(i)} disabled={picked !== null}>
+              <button
+                key={`${i}-${opt}`}
+                className={cls}
+                onClick={() => answer(i)}
+                disabled={picked !== null}
+              >
                 {opt}
               </button>
             );
