@@ -25,6 +25,33 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // «Сторожевой таймер» запуска: если игра не отрисовалась за 5 секунд,
+      // показываем реальную причину вместо зелёного фона.
+      window.__platskartError = null;
+      window.addEventListener('error', function (e) {
+        window.__platskartError = e && e.message ? e.message : 'Неизвестная ошибка скрипта';
+      });
+      window.addEventListener('unhandledrejection', function (e) {
+        window.__platskartError =
+          'Promise: ' + (e && e.reason ? String(e.reason) : 'неизвестная ошибка');
+      });
+      window.setTimeout(function () {
+        var root = document.getElementById('root');
+        if (root && root.children.length === 0) {
+          var msg =
+            window.__platskartError ||
+            'Скрипт игры не загрузился: файл /assets/… не найден. Скорее всего, предпросмотр открыт по вложенному пути или показывает устаревшую сборку.';
+          root.innerHTML =
+            '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;">' +
+            '<div style="max-width:540px;background:#12241d;border:2px solid #d0402e;border-radius:10px;padding:26px;text-align:center;color:#e8e0cc;font-family:monospace;">' +
+            '<div style="font-size:15px;letter-spacing:3px;color:#ff8a70;margin-bottom:14px;">СБОЙ НА ЛИНИИ</div>' +
+            '<div style="font-size:13px;line-height:1.55;">' + msg + '</div>' +
+            '<button onclick="location.reload()" style="margin-top:18px;padding:11px 22px;background:#d0402e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;">ПЕРЕЗАПУСТИТЬ СОСТАВ</button>' +
+            '</div></div>';
+        }
+      }, 5000);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
