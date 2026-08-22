@@ -1255,6 +1255,8 @@ export class PlatskartGame {
     this.drawFloor(ctx, w);
 
     const wob = bob * 0.32;
+    // дверь тамбура, приближающаяся в конце уровня
+    if (this.state === 'playing' || this.state === 'paused') this.drawLevelEnd(ctx, w, wob);
     for (const o of this.obstacles) this.drawObstacle(ctx, o, wob);
     for (const pic of this.photos) this.drawPhoto(ctx, pic);
     if (this.state !== 'transition') this.drawPlayer(ctx, wob);
@@ -1484,6 +1486,105 @@ export class PlatskartGame {
     ctx.lineWidth = 4;
     rr(ctx, x, 130, 90, gy - 130, 4);
     ctx.stroke();
+  }
+
+  /** Дверь тамбура, вплывающая справа по мере приближения к концу уровня. */
+  private drawLevelEnd(ctx: CanvasRenderingContext2D, w: number, wob: number) {
+    const lv = this.level;
+    if (lv >= 4) return; // 4-й уровень заканчивается финалом со свадьбой
+    const prog = levelProgress(this.score);
+    if (prog < 0.76) return;
+    // дверь появляется у правого края и подъезжает к игроку ровно к порогу уровня
+    const k = clamp((prog - 0.78) / 0.22, 0, 1);
+    const doorX = w + 220 - k * (w + 220 - (this.playerX + 190));
+    const groundY = GROUND_Y + wob;
+    const dy = 176 + wob * 0.8;
+
+    // предупреждающая жёлто-чёрная разметка на полу перед дверью
+    for (let sx = doorX - 180; sx < doorX - 20; sx += 24) {
+      if (sx + 24 < -20 || sx > w + 20) continue;
+      ctx.fillStyle = (((sx / 24) | 0) % 2) === 0 ? '#c9a227' : '#23201a';
+      ctx.beginPath();
+      ctx.moveTo(sx, groundY + 13);
+      ctx.lineTo(sx + 7, groundY + 3);
+      ctx.lineTo(sx + 19, groundY + 3);
+      ctx.lineTo(sx + 12, groundY + 13);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // дверная коробка
+    ctx.fillStyle = '#43474f';
+    ctx.fillRect(doorX - 14, dy - 12, 180, 16);
+    ctx.fillRect(doorX - 14, dy - 12, 14, groundY - dy + 14);
+    ctx.fillRect(doorX + 152, dy - 12, 14, groundY - dy + 14);
+    // тёмный проём
+    ctx.fillStyle = '#14161a';
+    ctx.fillRect(doorX, dy + 4, 152, groundY - dy - 2);
+    // створки (закрыты)
+    for (const lx of [doorX + 1, doorX + 77]) {
+      ctx.fillStyle = '#63676f';
+      ctx.fillRect(lx, dy + 4, 76, groundY - dy - 6);
+      ctx.fillStyle = '#565a62';
+      ctx.fillRect(lx, dy + 4, 3, groundY - dy - 6);
+      // окно в двери — из тамбура пробивается тёплый свет
+      ctx.fillStyle = '#232b38';
+      ctx.fillRect(lx + 22, dy + 40, 32, 44);
+      ctx.fillStyle = 'rgba(255,214,120,0.16)';
+      ctx.fillRect(lx + 25, dy + 43, 26, 38);
+      // ручка
+      ctx.fillStyle = '#3c4048';
+      ctx.fillRect(lx + 8, dy + 128, 10, 34);
+    }
+    // стык створок
+    ctx.fillStyle = '#2e3238';
+    ctx.fillRect(doorX + 74, dy + 4, 4, groundY - dy - 6);
+
+    // табличка «ТАМБУР» над дверью
+    ctx.fillStyle = '#1d3a32';
+    ctx.fillRect(doorX + 26, dy - 52, 100, 26);
+    ctx.strokeStyle = '#ffc24b';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(doorX + 26, dy - 52, 100, 26);
+    ctx.font = '9px "Press Start 2P"';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffe3a6';
+    ctx.fillText('ТАМБУР', doorX + 76, dy - 34);
+
+    // мигающая красная лампа над дверью
+    const blink = Math.sin(this.t * 5) > 0;
+    ctx.fillStyle = blink ? '#ff5a4a' : '#5a2018';
+    ctx.beginPath();
+    ctx.arc(doorX + 76, dy - 64, 6, 0, Math.PI * 2);
+    ctx.fill();
+    if (blink) {
+      const g = ctx.createRadialGradient(doorX + 76, dy - 64, 2, doorX + 76, dy - 64, 26);
+      g.addColorStop(0, 'rgba(255,90,74,0.4)');
+      g.addColorStop(1, 'rgba(255,90,74,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(doorX + 40, dy - 100, 72, 76);
+    }
+
+    // подвесная табличка «ВАГОН N →» слева от двери
+    ctx.fillStyle = '#3c3f46';
+    ctx.fillRect(doorX - 92, 128 + wob, 3, 26);
+    rr(ctx, doorX - 136, 152 + wob, 100, 30, 4);
+    ctx.fillStyle = '#16302a';
+    ctx.fill();
+    ctx.strokeStyle = '#3c5c51';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.font = '7px "Press Start 2P"';
+    ctx.fillStyle = '#ffe3a6';
+    ctx.fillText(`ВАГОН ${lv + 1}`, doorX - 92, 171 + wob);
+    // стрелка вправо
+    ctx.fillStyle = '#ffc24b';
+    ctx.beginPath();
+    ctx.moveTo(doorX - 46, 161 + wob);
+    ctx.lineTo(doorX - 46, 173 + wob);
+    ctx.lineTo(doorX - 38, 167 + wob);
+    ctx.closePath();
+    ctx.fill();
   }
 
   private drawNextDoor(
