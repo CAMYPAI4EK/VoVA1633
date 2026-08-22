@@ -30,15 +30,19 @@ export const PAL_PLAYER: Record<string, string> = {
   s: '#f0b587', // кожа
   e: '#20222a', // глаз
   x: '#e04430', // глаз (X)
-  j: '#2f4a7d', // олимпийка
-  w: '#e8e4d8', // лампасы
-  p: '#27395e', // штаны
+  j: '#4f74ae', // бойцовка — джинсовка студотряда
+  z: '#e8e4d8', // молния и светлый кант воротника
+  w: '#f2c94c', // жёлтый шеврон отряда
+  r: '#c0392b', // красная нашивка (флаг)
+  g: '#3e8e5a', // зелёная нашивка (значок)
+  p: '#3a5788', // джинсы
+  q: '#85a0cc', // светлые швы джинсов
   b: '#1c1a17', // ботинок
   u: '#c9c2b4', // подошва
   m: '#3a2517', // усы
 };
 
-// ---------- ПАССАЖИР (бег, 2 кадра) ----------
+// ---------- ВОЛОДЯ (бег, 2 кадра) ----------
 const RUN_HEAD = [
   '....hhhhhh....',
   '...hhhhhhhh...',
@@ -47,8 +51,8 @@ const RUN_HEAD = [
   '...ssssssss...',
   '...ssmmmmss...',
   '....ssssss....',
-  '..jjjjjjjjjj..',
-  '.jjwjjjjjjwjj.',
+  '..zjjjjjjjjz..',
+  '.jjwjjzzjjwjj.',
 ];
 
 export const RUN_A: Sprite = {
@@ -56,12 +60,12 @@ export const RUN_A: Sprite = {
   pal: PAL_PLAYER,
   rows: [
     ...RUN_HEAD,
-    '.jjjjjjjjjjs..',
-    '.jjjjjjjjjj...',
+    '.jjrjjzzjjgjs.',
+    '.jjrjjzzjjggj.',
     '..jjjjjjjj....',
-    '..pppppppp....',
-    '..ppp..ppp....',
-    '.ppp....ppp...',
+    '..pppqppqpp....',
+    '..ppq..ppq....',
+    '.ppq....ppq...',
     '.bbb....bbb...',
     'uuu......uuu..',
   ],
@@ -72,12 +76,12 @@ export const RUN_B: Sprite = {
   pal: PAL_PLAYER,
   rows: [
     ...RUN_HEAD,
-    '.jjjjjjjjjjs..',
-    '.jjjjjjjjjj...',
+    '.jjrjjzzjjgjs.',
+    '.jjrjjzzjjggj.',
     '..jjjjjjjj....',
-    '..pppppppp....',
-    '...pppppp.....',
-    '...ppp.pp.....',
+    '..pppqppqpp....',
+    '...ppqppq.....',
+    '...ppq.pp.....',
     '...bbb.bbb....',
     '..uuu..uuu....',
   ],
@@ -88,12 +92,12 @@ export const JUMP: Sprite = {
   pal: PAL_PLAYER,
   rows: [
     ...RUN_HEAD,
-    'sjjjjjjjjjjs..',
-    '.jjjjjjjjjj...',
+    'sjjwjjzzjjwjs.',
+    '.jjrjjzzjjggj.',
     '..jjjjjjjj....',
-    '..pppppppp....',
-    '..pppppppp....',
-    '..ppp..ppp....',
+    '..pppqppqpp....',
+    '..pppqppqpp....',
+    '..ppq..ppq....',
     '..bbb..bbb....',
     '..uuu..uuu....',
   ],
@@ -110,20 +114,20 @@ export const DEAD: Sprite = {
     '...ssssssss...',
     '...ssmmmmss...',
     '....ssssss....',
-    '..jjjjjjjjjj..',
-    '.jjwjjjjjjwjj.',
-    '.jjjjjjjjjjs..',
-    '.jjjjjjjjjj...',
+    '..zjjjjjjjjz..',
+    '.jjwjjzzjjwjj.',
+    '.jjrjjzzjjgjs.',
+    '.jjrjjzzjjggj.',
     '..jjjjjjjj....',
-    '..pppppppp....',
-    '..ppp..ppp....',
-    '.ppp....ppp...',
+    '..pppqppqpp....',
+    '..ppq..ppq....',
+    '.ppq....ppq...',
     'bbb......bbb..',
     'uuu......uuu..',
   ],
 };
 
-// ---------- ПАССАЖИР ПРИГНУЛСЯ ----------
+// ---------- ВОЛОДЯ ПРИГНУЛСЯ ----------
 export const DUCK: Sprite = {
   w: 22,
   pal: PAL_PLAYER,
@@ -133,11 +137,11 @@ export const DUCK: Sprite = {
     '.............hsessesh.',
     '.............ssssssss.',
     '.....jjjjjjjjssmmmmss.',
-    '....jjjjjjjjjjjjjjjj..',
-    '...jjwjjjjjjjjjjjjjj..',
-    '...jjjjjjjjjjjjjjjjj..',
-    '..pppppppppppppppp....',
-    '..pppp..pppp..........',
+    '....zjjjjjjjjjjjjjjz..',
+    '...jjwjjzzjjrjjjjjjj..',
+    '...jjjjjzzjjjjjjjjj...',
+    '..pppqpppqpppqpppq....',
+    '..pppq..pppq..........',
     '..bbbb..bbbb..........',
     '.uuuuu..uuuuu.........',
   ],

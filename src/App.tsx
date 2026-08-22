@@ -117,7 +117,7 @@ function QuizOverlay({
         </div>
 
         <p className="mt-4 text-sm leading-relaxed text-rail-200/85">
-          Пассажир упал, но поезд ещё можно догнать. Ответьте верно — и вернётесь в вагон{' '}
+          Володя упал, но поезд ещё можно догнать. Ответьте верно — и он вернётся в вагон{' '}
           <span className="font-medium text-lamp-300">на то же место</span>. Ошибётесь — маршрут
           начнётся сначала.
         </p>
@@ -548,7 +548,7 @@ export default function App() {
                   ПЛАЦКАРТ
                 </h1>
                 <div className="red-glow mt-3 font-display text-[11px] tracking-[0.25em] sm:text-xs">
-                  БЕГИ, ПАССАЖИР!
+                  БЕГИ, ВОЛОДЯ!
                 </div>
               </div>
               <div className="rounded border-2 border-brake-500/70 px-3 py-2 text-right">
@@ -562,6 +562,11 @@ export default function App() {
                 <span className="whitespace-nowrap font-medium">НОВОСИБИРСК → МОСКВА</span>
                 <span className="flex-1 border-b border-dotted border-rail-200/25" />
                 <span className="font-display text-[8px] text-lamp-400">3335 КМ</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="whitespace-nowrap font-medium">ПАССАЖИР: ВОЛОДЯ</span>
+                <span className="flex-1 border-b border-dotted border-rail-200/25" />
+                <span className="font-display text-[8px] text-lamp-400">СТУДОТРЯД</span>
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="whitespace-nowrap font-medium">ВАГОН 09 · МЕСТО 24</span>
@@ -708,7 +713,8 @@ export default function App() {
             </div>
             <h2 className="red-glow mt-2 font-display text-3xl sm:text-4xl">КОНЕЧНАЯ</h2>
             <p className="mt-3 max-w-sm text-sm text-rail-200/80">
-              Вы споткнулись в проходе и не доехали до своей станции. Вещи ваши, впрочем, на месте.
+              Володя споткнулся в проходе и не доехал до своей станции. Бойцовка цела, джинсы тоже, а
+              вещи его, впрочем, на месте.
             </p>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
@@ -759,6 +765,9 @@ export default function App() {
               </div>
               <RingsIcon className="h-7 w-7" />
             </div>
+            <div className="mt-1.5 font-display text-[10px] tracking-widest text-lamp-300">
+              ВОЛОДЯ + ТАНЯ = ЛЮБОВЬ
+            </div>
             <h2
               className="mt-2 font-display text-4xl text-[#ffd9e4]"
               style={{ textShadow: '0 0 20px rgba(232,106,138,0.85)' }}
@@ -766,9 +775,9 @@ export default function App() {
               ГОРЬКО!
             </h2>
             <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-rail-200/85">
-              Пассажир добежал до конца маршрута — и до сердца проводницы{' '}
-              <span className="font-medium text-[#ffb3c6]">Тани</span>. Узы брака скреплены
-              обручальными кольцами, голуби разлетелись по вагону.
+              <span className="font-medium text-lamp-300">Володя</span> добежал до конца маршрута —
+              и до сердца проводницы <span className="font-medium text-[#ffb3c6]">Тани</span>. Узы
+              брака скреплены обручальными кольцами, голуби разлетелись по вагону.
             </p>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="rounded border border-[#e86a8a]/40 bg-wagon-900/70 px-4 py-3">
