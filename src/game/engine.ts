@@ -1480,8 +1480,8 @@ export class PlatskartGame {
     ctx.arc(bulbX, 92, 8, 0, Math.PI * 2);
     ctx.fill();
 
-    // табличка, подвешенная на цепях (едва покачивается)
-    const sway = Math.sin(this.t * 1.7) * 0.012;
+    // табличка, подвешенная на цепях (покачивается)
+    const sway = Math.sin(this.t * 1.7) * 0.03;
     const bx = w * 0.37;
     const by = 126;
     ctx.save();

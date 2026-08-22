@@ -367,7 +367,11 @@ export default function App() {
       <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full touch-none" />
 
       {/* плёнки */}
-      <div className="crt-lines pointer-events-none absolute inset-0 z-20" />
+      <div
+        className={`crt-lines pointer-events-none absolute inset-0 z-20 ${
+          gs === 'transition' ? 'crt-soft' : ''
+        }`}
+      />
       <div className="vignette pointer-events-none absolute inset-0 z-20" />
 
       {/* -------- HUD -------- */}
