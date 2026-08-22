@@ -1480,6 +1480,35 @@ export class PlatskartGame {
     ctx.arc(bulbX, 92, 8, 0, Math.PI * 2);
     ctx.fill();
 
+    // табличка, подвешенная на цепях (покачивается)
+    const sway = Math.sin(this.t * 1.7) * 0.03;
+    const bx = w * 0.37;
+    const by = 126;
+    ctx.save();
+    ctx.translate(bx, 100);
+    ctx.rotate(sway);
+    ctx.translate(-bx, -100);
+    ctx.strokeStyle = '#5a646e';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(bx - 108, 99);
+    ctx.lineTo(bx - 108, by);
+    ctx.moveTo(bx + 108, 99);
+    ctx.lineTo(bx + 108, by);
+    ctx.stroke();
+    rr(ctx, bx - 128, by, 256, 34, 5);
+    ctx.fillStyle = '#143026';
+    ctx.fill();
+    ctx.strokeStyle = '#ffc24b';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.font = '7px "Press Start 2P"';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffe3a6';
+    ctx.fillText('ТАНЯ ЖДЁТ В СЛЕДУЮЩЕМ ВАГОНЕ', bx, by + 21);
+    drawSprite(ctx, HEART_P, bx + 104, by + 8, 2);
+    ctx.restore();
+
     // пассажир
     const cx = this.transCharX(w);
     const moving = this.transPhase !== 'ready';
